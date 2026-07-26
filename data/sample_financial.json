@@ -1,0 +1,47 @@
+{
+  "company": "示例科技股份有限公司",
+  "period": "2025年度",
+  "balance_sheet": {
+    "current_assets": 5000000,
+    "non_current_assets": 15000000,
+    "fixed_assets": 12000000,
+    "intangible_assets": 2000000,
+    "total_assets": 20000000,
+    "current_liabilities": 4000000,
+    "non_current_liabilities": 6000000,
+    "long_term_debt": 5000000,
+    "total_liabilities": 10000000,
+    "share_capital": 5000000,
+    "retained_earnings": 4000000,
+    "reserves": 1000000,
+    "total_equity": 10000000
+  },
+  "income_statement": {
+    "revenue": 30000000,
+    "cost_of_goods_sold": 18000000,
+    "gross_profit": 12000000,
+    "operating_expenses": 7000000,
+    "operating_profit": 5000000,
+    "net_profit": 3500000,
+    "ebitda": 6500000,
+    "previous_period": {
+      "revenue": 25000000,
+      "gross_profit": 9500000,
+      "operating_profit": 3800000,
+      "net_profit": 2600000
+    }
+  },
+  "cash_flow": {
+    "operating_cash_flow": 4200000,
+    "investing_cash_flow": -3000000,
+    "financing_cash_flow": -500000,
+    "net_profit": 3500000,
+    "capital_expenditure": -2800000
+  },
+  "analysis_prompts": {
+    "revenue_decline": "公司营收同比下降15%，毛利率从40%降至30%，请分析原因",
+    "debt_crisis": "公司流动比率0.8，资产负债率70%，经营现金流为负，评估偿债风险",
+    "earnings_quality": "公司净利润增长34%但经营现金流仅增长5%，分析盈利质量",
+    "du pont_decomposition": "ROE从15%降至10%，请通过杜邦分析找出ROE下降的根本原因"
+  }
+}

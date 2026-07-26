@@ -1,0 +1,51 @@
+# Secrets — never commit real API keys
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+__MACOSX/
+
+# Runtime data (generated on each machine after Docker starts)
+data/docker/chroma/*
+data/docker/neo4j/data/*
+data/docker/neo4j/logs/*
+data/chroma/*
+data/settings.json
+data/audit.log
+
+# Keep directory structure
+!data/docker/
+!data/docker/chroma/
+!data/docker/chroma/.gitkeep
+!data/docker/neo4j/
+!data/docker/neo4j/data/
+!data/docker/neo4j/data/.gitkeep
+!data/docker/neo4j/logs/
+!data/docker/neo4j/logs/.gitkeep
+!data/chroma/
+!data/chroma/.gitkeep

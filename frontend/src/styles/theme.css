@@ -1,0 +1,85 @@
+:root {
+  /* 主色 — 靛紫 */
+  --color-primary: #6366F1;
+  --color-primary-hover: #4F46E5;
+  --color-primary-light: #EEF2FF;
+  --color-primary-muted: #E0E7FF;
+  --color-primary-glow: rgba(99, 102, 241, 0.18);
+
+  /* 辅色 — 青 / 紫 / 粉 */
+  --color-accent: #06B6D4;
+  --color-accent-light: #ECFEFF;
+  --color-violet: #8B5CF6;
+  --color-violet-light: #F5F3FF;
+  --color-rose: #F472B6;
+  --color-rose-light: #FDF2F8;
+  --color-amber: #F59E0B;
+  --color-amber-light: #FFFBEB;
+
+  /* 背景层次 */
+  --color-background: #F5F3FF;
+  --color-background-alt: #FAFAFF;
+  --color-surface: rgba(255, 255, 255, 0.82);
+  --color-surface-solid: #FFFFFF;
+  --color-foreground: #1E1B4B;
+  --color-muted: #64748B;
+  --color-border: rgba(199, 210, 254, 0.55);
+  --color-border-light: rgba(238, 242, 255, 0.9);
+
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+
+  /* 渐变预设 */
+  --gradient-page: linear-gradient(135deg, #F5F3FF 0%, #EEF2FF 35%, #ECFEFF 70%, #FAF5FF 100%);
+  --gradient-sidebar: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(238,242,255,0.88) 100%);
+  --gradient-primary: linear-gradient(135deg, #818CF8 0%, #6366F1 50%, #4F46E5 100%);
+  --gradient-accent: linear-gradient(135deg, #A78BFA 0%, #6366F1 50%, #06B6D4 100%);
+  --gradient-warm: linear-gradient(135deg, #F472B6 0%, #818CF8 100%);
+  --gradient-card-shine: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(238,242,255,0.75) 100%);
+
+  --ui-primary: var(--color-primary);
+  --ui-primary-dark: var(--color-primary-hover);
+  --ui-primary-light: var(--color-primary-light);
+  --ui-primary-tint: var(--color-primary-muted);
+  --ui-gradient-start: #818CF8;
+  --ui-gradient-end: #4F46E5;
+  --ui-title-accent: var(--color-foreground);
+  --ui-bg-page: var(--color-background);
+  --ui-bg-muted: rgba(238, 242, 255, 0.65);
+  --ui-border: var(--color-border);
+  --ui-text-primary: var(--color-foreground);
+  --ui-text-regular: #334155;
+  --ui-text-secondary: var(--color-muted);
+  --ui-success: var(--color-success);
+  --ui-warning: var(--color-warning);
+  --ui-danger: var(--color-danger);
+  --ui-shadow-sm: 0 1px 3px rgba(99, 102, 241, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ui-shadow-md: 0 4px 20px rgba(99, 102, 241, 0.1), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --ui-shadow-lg: 0 12px 40px rgba(99, 102, 241, 0.14), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --ui-shadow-glow: 0 0 0 1px rgba(199, 210, 254, 0.5), 0 8px 32px rgba(99, 102, 241, 0.12);
+  --ui-radius-card: 14px;
+  --ui-radius-pill: 999px;
+  --ui-font: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --page-bg: var(--gradient-page);
+  --sidebar-bg: var(--gradient-sidebar);
+  --card-bg: var(--color-surface);
+  --accent: var(--ui-primary);
+  --accent-hover: var(--ui-primary-dark);
+  --accent-light: var(--ui-primary-light);
+  --accent-border: #C7D2FE;
+  --text-primary: var(--ui-text-primary);
+  --text-secondary: var(--ui-text-regular);
+  --text-muted: var(--ui-text-secondary);
+  --text-placeholder: #94A3B8;
+  --border: var(--ui-border);
+  --border-light: var(--color-border-light);
+  --border-focus: var(--ui-primary);
+  --surface-elevated: var(--ui-bg-muted);
+  --shadow-sm: var(--ui-shadow-sm);
+  --shadow-md: var(--ui-shadow-md);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
