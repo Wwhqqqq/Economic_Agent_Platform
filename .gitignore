@@ -31,11 +31,13 @@ Thumbs.db
 __MACOSX/
 
 # Runtime data (generated on each machine after Docker starts)
+data/chroma/*
 data/docker/chroma/*
 data/docker/neo4j/data/*
 data/docker/neo4j/logs/*
 data/docker/mysql/*
 data/docker/redis/*
+backend/data/chroma/*
 data/chroma/*
 data/settings.json
 data/audit.log
