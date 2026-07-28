@@ -1,0 +1,23 @@
+# 叠加配置：backend / migrate 加入已有 MySQL 容器所在的 Docker 网络
+# 当 MYSQL_DOCKER_NETWORK 已设置时，由 one-click-deploy.sh 自动启用
+#
+# 用法:
+#   docker compose -f deploy/docker-compose.prod.yml \
+#     -f deploy/docker-compose.prod.external-mysql.yml \
+#     --project-directory . up -d --build
+
+services:
+  migrate:
+    networks:
+      - app-net
+      - mysql-external
+
+  backend:
+    networks:
+      - app-net
+      - mysql-external
+
+networks:
+  mysql-external:
+    external: true
+    name: ${MYSQL_DOCKER_NETWORK}

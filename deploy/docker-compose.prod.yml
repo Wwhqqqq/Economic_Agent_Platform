@@ -1,0 +1,116 @@
+# 生产环境 Docker Compose（与本地 docker-compose.yml 独立，互不影响）
+# 复用已有 Docker MySQL 容器（通过 docker-compose.prod.external-mysql.yml 加入同一网络）
+# 对外仅暴露 DEPLOY_PORT（默认 8082，避开已有 8080）
+#
+# 用法（在项目根目录）:
+#   docker compose -f deploy/docker-compose.prod.yml --project-directory . up -d --build
+
+name: agent-platform-prod
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: agent-prod-redis
+    volumes:
+      - ./data/docker/redis:/data
+    restart: unless-stopped
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  chromadb:
+    image: chromadb/chroma:0.5.20
+    container_name: agent-prod-chromadb
+    volumes:
+      - ./data/docker/chroma:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  neo4j:
+    image: neo4j:5.25.1-community
+    container_name: agent-prod-neo4j
+    volumes:
+      - ./data/docker/neo4j/data:/data
+      - ./data/docker/neo4j/logs:/logs
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD}
+      NEO4J_server_memory_pagecache_size: 256M
+      NEO4J_server_memory_heap_initial__size: 256M
+      NEO4J_server_memory_heap_max__size: 512M
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    container_name: agent-prod-migrate
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-root}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-agent_platform}?charset=utf8mb4
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    networks:
+      - app-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    container_name: agent-prod-backend
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEBUG: "false"
+      DATABASE_URL: mysql+aiomysql://${MYSQL_USER:-root}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-agent_platform}?charset=utf8mb4
+      REDIS_URL: redis://redis:6379/0
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      NEO4J_URI: bolt://neo4j:7687
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.frontend
+    container_name: agent-prod-gateway
+    ports:
+      - "${DEPLOY_PORT:-8082}:8082"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
