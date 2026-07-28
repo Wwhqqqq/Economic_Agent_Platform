@@ -3,14 +3,22 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # pymysql / aiomysql are pure Python — no gcc or libmysqlclient-dev needed.
-# Removing apt-get saves ~15–30 min on first build (especially on slow networks).
+# Override mirror at build time if needed:
+#   docker compose build --build-arg PIP_INDEX_URL=https://pypi.org/simple backend
+
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_PREFER_BINARY=1
+    PIP_PREFER_BINARY=1 \
+    PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST} \
+    PIP_DEFAULT_TIMEOUT=300
 
 COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install -r /app/backend/requirements.txt
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install --retries 10 --timeout 300 -r /app/backend/requirements.txt
 
 COPY backend /app/backend
 
