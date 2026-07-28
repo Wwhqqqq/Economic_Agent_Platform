@@ -1,15 +1,23 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
-import { login as apiLogin, fetchMe } from '../api/client'
+import { login as apiLogin, fetchMe, register as apiRegister } from '../api/client'
+import { resolveIsMember, userTypeLabel, type UserType } from '../utils/membership'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('auth_token') || '')
   const userId = ref<number | null>(null)
   const username = ref('')
-  const userType = ref<'regular' | 'member'>('regular')
+  const userType = ref<UserType>('regular')
+  const membershipExpiresAt = ref<string | null>(null)
   const authEnabled = ref(false)
   const checked = ref(false)
+
+  const isMember = computed(() =>
+    resolveIsMember(userType.value, membershipExpiresAt.value),
+  )
+
+  const userTypeDisplay = computed(() => userTypeLabel(isMember.value))
 
   function syncTokenFromStorage() {
     token.value = localStorage.getItem('auth_token') || ''
@@ -34,6 +42,30 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function applyUserProfile(data: {
+    user_id?: number
+    username?: string
+    user_type?: string
+    membership_expires_at?: string | null
+  }) {
+    userId.value = data.user_id ?? null
+    username.value = data.username ?? ''
+    userType.value = (String(data.user_type || 'regular').trim().toLowerCase() === 'member'
+      ? 'member'
+      : 'regular') as UserType
+    membershipExpiresAt.value = data.membership_expires_at ?? null
+  }
+
+  async function refreshProfile() {
+    if (!token.value) return
+    try {
+      const data = await fetchMe()
+      applyUserProfile(data)
+    } catch {
+      /* keep existing profile on transient errors */
+    }
+  }
+
   async function checkAuth() {
     syncTokenFromStorage()
     await loadAuthConfig()
@@ -47,9 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
     try {
       const data = await fetchMe()
-      userId.value = data.user_id ?? null
-      username.value = data.username
-      userType.value = data.user_type || 'regular'
+      applyUserProfile(data)
       checked.value = true
       return true
     } catch {
@@ -64,10 +94,32 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await apiLogin(user, password)
     if (!data.success) throw new Error(data.message || '登录失败')
     token.value = data.token
-    username.value = data.username
-    userId.value = data.user_id
-    userType.value = data.user_type || 'regular'
+    applyUserProfile(data)
     localStorage.setItem('auth_token', data.token)
+    checked.value = true
+    return data
+  }
+
+  async function register(payload: {
+    username: string
+    email: string
+    password: string
+    verification_code: string
+  }) {
+    const data = await apiRegister(payload)
+    if (!data.success) {
+      const err = new Error(data.message || '注册失败') as Error & {
+        code?: string
+        field?: string
+      }
+      err.code = data.code
+      err.field = data.field
+      throw err
+    }
+    token.value = data.token
+    applyUserProfile(data)
+    localStorage.setItem('auth_token', data.token)
+    checked.value = true
     return data
   }
 
@@ -76,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     username.value = ''
     userId.value = null
     userType.value = 'regular'
+    membershipExpiresAt.value = null
     localStorage.removeItem('auth_token')
   }
 
@@ -84,12 +137,17 @@ export const useAuthStore = defineStore('auth', () => {
     userId,
     username,
     userType,
+    membershipExpiresAt,
+    isMember,
+    userTypeDisplay,
     authEnabled,
     checked,
     checkAuth,
+    refreshProfile,
     syncTokenFromStorage,
     setToken,
     login,
+    register,
     logout,
   }
 })

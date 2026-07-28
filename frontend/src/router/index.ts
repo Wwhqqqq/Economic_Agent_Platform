@@ -5,6 +5,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
+    { path: '/register', name: 'register', component: () => import('../views/RegisterView.vue') },
     { path: '/', name: 'chat', component: () => import('../views/ChatView.vue') },
     { path: '/tools', name: 'tools', component: () => import('../views/ToolsView.vue') },
     { path: '/skills', name: 'skills', component: () => import('../views/SkillsView.vue') },
@@ -18,10 +19,10 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   auth.syncTokenFromStorage()
   if (!auth.checked) await auth.checkAuth()
-  if (auth.authEnabled && !auth.token && to.name !== 'login') {
+  if (auth.authEnabled && !auth.token && to.name !== 'login' && to.name !== 'register') {
     return { name: 'login' }
   }
-  if (to.name === 'login' && auth.token) {
+  if ((to.name === 'login' || to.name === 'register') && auth.token) {
     return { name: 'chat' }
   }
 })

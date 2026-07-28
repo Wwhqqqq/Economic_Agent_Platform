@@ -1,6 +1,6 @@
 <template>
-  <div class="app-container">
-    <aside class="sidebar">
+  <div :class="['app-container', { 'auth-layout': isAuthRoute }]">
+    <aside v-if="!isAuthRoute" class="sidebar">
       <div class="sidebar-header">
         <div class="logo-wrap">
           <div class="logo-icon">
@@ -65,9 +65,21 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div v-if="authStore.username" class="user-bar">
-          <span class="user-name">{{ authStore.username }}</span>
-          <span class="user-type">{{ authStore.userType === 'member' ? '会员' : '普通' }}</span>
+        <div v-if="authStore.username" class="user-card" :class="{ member: authStore.isMember }">
+          <div class="user-identity">
+            <div class="user-avatar" :class="{ member: authStore.isMember }">
+              {{ userInitial }}
+            </div>
+            <div class="user-info">
+              <span class="user-name">{{ authStore.username }}</span>
+              <MembershipBadge
+                :is-member="authStore.isMember"
+                :membership-expires-at="authStore.membershipExpiresAt"
+                size="sm"
+                :show-expiry="authStore.isMember"
+              />
+            </div>
+          </div>
           <button type="button" class="logout-btn" @click="handleLogout">退出</button>
         </div>
         <div class="footer-card">
@@ -77,8 +89,8 @@
       </div>
     </aside>
 
-    <main class="main-content">
-      <DecorativeBg />
+    <main :class="['main-content', { 'auth-main': isAuthRoute }]">
+      <DecorativeBg v-if="!isAuthRoute" />
       <div v-if="showStatusBanner" class="status-banner">
         <el-icon><WarningFilled /></el-icon>
         <span>部分服务暂不可用，核心对话功能仍可正常使用</span>
@@ -91,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor,
@@ -109,6 +121,7 @@ import { useSystemStore } from './stores/system'
 import { useChatStore } from './stores/chat'
 import { useAuthStore } from './stores/auth'
 import DecorativeBg from './components/ui/DecorativeBg.vue'
+import MembershipBadge from './components/ui/MembershipBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -118,6 +131,12 @@ const chatStore = useChatStore()
 const authStore = useAuthStore()
 
 const isChatRoute = computed(() => route.path === '/')
+const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
+
+const userInitial = computed(() => {
+  const name = authStore.username
+  return name ? name.charAt(0).toUpperCase() : '?'
+})
 
 const serviceStatusText = computed(() => {
   const s = systemStore.status?.status
@@ -157,14 +176,24 @@ async function handleLogout() {
 
 onMounted(async () => {
   await platformStore.load()
-  systemStore.refresh()
+  if (!isAuthRoute.value) {
+    systemStore.refresh()
+  }
   if (!authStore.checked) await authStore.checkAuth()
+  if (isAuthRoute.value) return
   if (authStore.authEnabled && authStore.token) {
+    await authStore.refreshProfile()
     await chatStore.newSession()
   } else {
     chatStore.connect()
   }
   chatStore.loadSessions()
+})
+
+watch(isAuthRoute, async (onAuthPage) => {
+  if (!onAuthPage && authStore.token) {
+    await authStore.refreshProfile()
+  }
 })
 </script>
 
@@ -434,31 +463,79 @@ onMounted(async () => {
   border-top: 1px solid rgba(199, 210, 254, 0.35);
 }
 
-.user-bar {
+.user-card {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.55), rgba(238, 242, 255, 0.85));
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.user-card.member {
+  background: linear-gradient(135deg, rgba(237, 233, 254, 0.75), rgba(221, 214, 254, 0.45));
+  border: 1px solid rgba(139, 92, 246, 0.45);
+}
+
+.user-identity {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-  font-size: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
-.user-name { font-weight: 600; color: var(--ui-text-primary); }
-.user-type {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(99,102,241,0.12);
-  color: #6366f1;
-  font-size: 11px;
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--gradient-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
 }
+
+.user-avatar.member {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.35);
+}
+
+.user-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .logout-btn {
-  margin-left: auto;
-  border: none;
-  background: transparent;
+  width: 100%;
+  border: 1px solid rgba(199, 210, 254, 0.5);
+  background: rgba(255, 255, 255, 0.75);
   color: var(--ui-text-secondary);
   cursor: pointer;
   font-size: 12px;
+  padding: 6px 0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
-.logout-btn:hover { color: #6366f1; }
+
+.logout-btn:hover {
+  color: #6366f1;
+  border-color: #a5b4fc;
+  background: var(--ui-primary-light);
+}
 
 .footer-card {
   padding: 12px 14px;
@@ -507,5 +584,17 @@ onMounted(async () => {
   font-size: 12px;
   border-bottom: 1px solid #FDE68A;
   flex-shrink: 0;
+}
+
+.auth-layout {
+  background: var(--gradient-page);
+}
+
+.auth-main {
+  background: transparent;
+}
+
+.auth-main .main-inner {
+  overflow: auto;
 }
 </style>

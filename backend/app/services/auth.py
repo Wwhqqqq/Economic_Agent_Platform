@@ -126,9 +126,26 @@ async def register_user(
     email: Optional[str] = None,
     user_type: str = "regular",
 ) -> User:
+    from app.core.validators import validate_email, validate_password, validate_username
+
+    ok, msg = validate_username(username)
+    if not ok:
+        raise ValueError(f"USERNAME_INVALID:{msg}")
+    ok, msg = validate_password(password)
+    if not ok:
+        raise ValueError(f"PASSWORD_INVALID:{msg}")
+    if email:
+        ok, msg = validate_email(email)
+        if not ok:
+            raise ValueError(f"EMAIL_INVALID:{msg}")
+
     existing = await db.execute(select(User).where(User.username == username))
     if existing.scalar_one_or_none():
-        raise ValueError("用户名已存在")
+        raise ValueError("USERNAME_TAKEN:用户名已被占用")
+    if email:
+        existing_email = await db.execute(select(User).where(User.email == email))
+        if existing_email.scalar_one_or_none():
+            raise ValueError("EMAIL_TAKEN:该邮箱已被注册")
     user = User(
         username=username,
         email=email,
@@ -140,6 +157,16 @@ async def register_user(
     await db.flush()
     await db.refresh(user)
     return user
+
+
+async def email_exists(db: AsyncSession, email: str) -> bool:
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none() is not None
+
+
+async def username_exists(db: AsyncSession, username: str) -> bool:
+    result = await db.execute(select(User).where(User.username == username))
+    return result.scalar_one_or_none() is not None
 
 
 async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:

@@ -18,7 +18,7 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('auth_token')
-      if (window.location.pathname !== '/login') {
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login'
       }
     }
@@ -28,8 +28,18 @@ api.interceptors.response.use(
 
 export default api
 
-export async function register(username: string, password: string, email?: string) {
-  const { data } = await api.post('/auth/register', { username, password, email })
+export async function sendVerificationCode(email: string, purpose = 'register') {
+  const { data } = await api.post('/auth/send-verification-code', { email, purpose })
+  return data
+}
+
+export async function register(payload: {
+  username: string
+  email: string
+  password: string
+  verification_code: string
+}) {
+  const { data } = await api.post('/auth/register', payload)
   return data
 }
 

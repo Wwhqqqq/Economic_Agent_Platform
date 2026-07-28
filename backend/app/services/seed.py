@@ -32,8 +32,17 @@ async def seed_initial_data() -> None:
                 db.add(SystemSetting(key=key, value_json=json.dumps(value)))
 
         users_to_seed = [
+            # 原有测试账号
             ("test_regular", "Test123456", "regular", None),
             ("test_member", "Test123456", "member", datetime(2099, 12, 31, tzinfo=timezone.utc)),
+            # 演示账号
+            ("demo_regular", "Test123456", "regular", None),
+            ("demo_member", "Test123456", "member", datetime(2099, 12, 31, tzinfo=timezone.utc)),
+            # 业务命名账号
+            ("user_regular", "Test123456", "regular", None),
+            ("user_member", "Test123456", "member", datetime(2027, 6, 30, tzinfo=timezone.utc)),
+            # 过期会员（登录时自动降级为普通用户）
+            ("expired_member", "Test123456", "member", datetime(2020, 1, 1, tzinfo=timezone.utc)),
         ]
         for username, password, user_type, expires in users_to_seed:
             result = await db.execute(select(User).where(User.username == username))

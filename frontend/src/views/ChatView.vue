@@ -2,8 +2,18 @@
   <div class="chat-view">
     <header class="chat-header">
       <div class="header-left">
-        <h2 class="chat-title">智能对话</h2>
-        <p class="chat-subtitle">与智能体协作，完成分析、检索与决策任务</p>
+        <div class="title-row">
+          <h2 class="chat-title">智能对话</h2>
+          <MembershipBadge
+            v-if="authStore.username"
+            :is-member="authStore.isMember"
+            :membership-expires-at="authStore.membershipExpiresAt"
+            size="sm"
+          />
+        </div>
+        <p class="chat-subtitle">
+          {{ authStore.isMember ? '会员专享高级编排与技能已解锁' : '普通用户模式 · 升级会员解锁更多能力' }}
+        </p>
       </div>
       <div class="header-right">
         <div class="control-group">
@@ -209,11 +219,15 @@ import {
 import { useChatStore } from '../stores/chat'
 import { useSettingsStore } from '../stores/settings'
 import { usePlatformStore } from '../stores/platform'
+import { useAuthStore } from '../stores/auth'
 import { activateSkill, deactivateSkill, fetchSkills, fetchLLMConfig } from '../api/client'
 import { toolLabel, providerLabel, stepLabel } from '../utils/displayLabels'
 import MarkdownIt from 'markdown-it'
 import EmptyState from '../components/ui/EmptyState.vue'
 import QuickChip from '../components/ui/QuickChip.vue'
+import MembershipBadge from '../components/ui/MembershipBadge.vue'
+
+const authStore = useAuthStore()
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
@@ -334,6 +348,13 @@ function quickAction(type: string) {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .mode-banner {
