@@ -165,6 +165,12 @@ async def root():
     }
 
 
+@app.get("/health/live")
+async def health_live():
+    """Liveness probe — process is up; used by Docker HEALTHCHECK."""
+    return {"status": "alive"}
+
+
 @app.get("/health")
 async def health_check():
     from app.services.health import get_system_status
