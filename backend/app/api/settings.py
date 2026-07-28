@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.llm.factory import LLMFactory
 from app.models.settings import LLMProviderUpdate
 from app.core.settings_store import save_provider, save_default_provider
+from app.schemas.user_context import UserContext
 from app.services.auth import require_admin
 from app.services.audit_log import log_action
 
@@ -35,7 +36,7 @@ async def get_llm_config():
 
 
 @router.put("/llm")
-async def update_llm_config(req: LLMProviderUpdate, user: str = Depends(require_admin)):
+async def update_llm_config(req: LLMProviderUpdate, user: UserContext = Depends(require_admin)):
     LLMFactory.update_provider(
         name=req.provider,
         api_key=req.api_key,
@@ -51,12 +52,12 @@ async def update_llm_config(req: LLMProviderUpdate, user: str = Depends(require_
         "temperature": req.temperature,
         "max_tokens": req.max_tokens,
     })
-    log_action("settings.llm.update", user, {"provider": req.provider})
+    log_action("settings.llm.update", user.username, {"provider": req.provider})
     return {"status": "updated", "provider": req.provider}
 
 
 @router.put("/llm/default")
-async def set_default_provider(req: DefaultProviderRequest, user: str = Depends(require_admin)):
+async def set_default_provider(req: DefaultProviderRequest, user: UserContext = Depends(require_admin)):
     save_default_provider(req.provider)
-    log_action("settings.llm.default", user, {"provider": req.provider})
+    log_action("settings.llm.default", user.username, {"provider": req.provider})
     return {"status": "updated", "default_provider": req.provider}

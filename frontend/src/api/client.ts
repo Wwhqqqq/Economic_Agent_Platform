@@ -13,7 +13,30 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('auth_token')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(err)
+  }
+)
+
 export default api
+
+export async function register(username: string, password: string, email?: string) {
+  const { data } = await api.post('/auth/register', { username, password, email })
+  return data
+}
+
+export async function createSession(title = '新对话') {
+  const { data } = await api.post('/sessions', { title })
+  return data
+}
 
 export async function login(username: string, password: string) {
   const { data } = await api.post('/auth/login', { username, password })

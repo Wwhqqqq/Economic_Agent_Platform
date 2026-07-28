@@ -16,6 +16,7 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  auth.syncTokenFromStorage()
   if (!auth.checked) await auth.checkAuth()
   if (auth.authEnabled && !auth.token && to.name !== 'login') {
     return { name: 'login' }

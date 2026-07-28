@@ -35,3 +35,11 @@ duckduckgo-search>=5.0.0
 # 其他工具
 pydantic>=2.7.0
 httpx>=0.27.0
+
+# 多用户基础设施 (Phase 0/1)
+sqlalchemy[asyncio]>=2.0.0
+aiomysql>=0.2.0
+pymysql>=1.1.0
+alembic>=1.13.0
+bcrypt>=4.1.0
+redis>=5.0.0

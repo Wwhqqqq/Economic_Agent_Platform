@@ -65,6 +65,11 @@
       </nav>
 
       <div class="sidebar-footer">
+        <div v-if="authStore.username" class="user-bar">
+          <span class="user-name">{{ authStore.username }}</span>
+          <span class="user-type">{{ authStore.userType === 'member' ? '会员' : '普通' }}</span>
+          <button type="button" class="logout-btn" @click="handleLogout">退出</button>
+        </div>
         <div class="footer-card">
           <div class="footer-title">企业版</div>
           <div class="version">v1.0.0</div>
@@ -102,6 +107,7 @@ import {
 import { usePlatformStore } from './stores/platform'
 import { useSystemStore } from './stores/system'
 import { useChatStore } from './stores/chat'
+import { useAuthStore } from './stores/auth'
 import DecorativeBg from './components/ui/DecorativeBg.vue'
 
 const route = useRoute()
@@ -109,6 +115,7 @@ const router = useRouter()
 const platformStore = usePlatformStore()
 const systemStore = useSystemStore()
 const chatStore = useChatStore()
+const authStore = useAuthStore()
 
 const isChatRoute = computed(() => route.path === '/')
 
@@ -142,10 +149,21 @@ async function selectSession(id: string) {
   if (id !== chatStore.sessionId) chatStore.switchSession(id)
 }
 
+async function handleLogout() {
+  authStore.logout()
+  chatStore.disconnect()
+  await router.push('/login')
+}
+
 onMounted(async () => {
   await platformStore.load()
   systemStore.refresh()
-  chatStore.connect()
+  if (!authStore.checked) await authStore.checkAuth()
+  if (authStore.authEnabled && authStore.token) {
+    await chatStore.newSession()
+  } else {
+    chatStore.connect()
+  }
   chatStore.loadSessions()
 })
 </script>
@@ -415,6 +433,32 @@ onMounted(async () => {
   padding: 12px 16px 16px;
   border-top: 1px solid rgba(199, 210, 254, 0.35);
 }
+
+.user-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.user-name { font-weight: 600; color: var(--ui-text-primary); }
+.user-type {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(99,102,241,0.12);
+  color: #6366f1;
+  font-size: 11px;
+}
+.logout-btn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+.logout-btn:hover { color: #6366f1; }
 
 .footer-card {
   padding: 12px 14px;

@@ -46,13 +46,34 @@ def probe_llm() -> dict:
     return {"status": "up" if providers else "down", "default_provider": default, "providers": providers}
 
 
-def get_system_status() -> dict:
+async def probe_mysql() -> dict:
+    from app.core.database import ping_mysql
+    return await ping_mysql()
+
+
+async def probe_redis() -> dict:
+    from app.db.redis_client import ping_redis
+    return await ping_redis()
+
+
+async def get_system_status() -> dict:
     chroma = probe_chroma()
     neo4j = probe_neo4j()
     llm = probe_llm()
+    mysql = await probe_mysql()
+    redis = await probe_redis()
     overall = "healthy"
     if chroma["status"] != "up" or llm["status"] != "up":
         overall = "degraded"
+    if mysql["status"] != "up":
+        overall = "degraded"
     if chroma["status"] != "up" and neo4j["status"] != "up":
         overall = "unhealthy"
-    return {"status": overall, "chroma": chroma, "neo4j": neo4j, "llm": llm}
+    return {
+        "status": overall,
+        "mysql": mysql,
+        "redis": redis,
+        "chroma": chroma,
+        "neo4j": neo4j,
+        "llm": llm,
+    }

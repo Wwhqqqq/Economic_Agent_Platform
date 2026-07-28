@@ -244,7 +244,7 @@ Deliver your final judgment in markdown with sections:
             previous_context = debate_round.judge_summary
 
         verdict, _ = await self._final_judgment(user_input, result, config)
-        await memory_manager.save_context(config.session_id, user_input, verdict)
+        await memory_manager.save_context(config.session_id, user_input, verdict, user_id=config.user_id)
 
         return AgentResponse(
             output=verdict,
@@ -356,7 +356,7 @@ Deliver your final judgment in markdown with sections:
                     "tool_calls": all_tool_calls,
                 },
             )
-            await memory_manager.save_context(config.session_id, user_input, verdict)
+            await memory_manager.save_context(config.session_id, user_input, verdict, user_id=config.user_id)
             yield AgentEvent(type=AgentEventType.DONE)
 
         except Exception as exc:

@@ -8,4 +8,4 @@ router = APIRouter(prefix="/api/system", tags=["system"])
 
 @router.get("/status")
 async def system_status():
-    return get_system_status()
+    return await get_system_status()

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ChatWebSocket } from '../api/websocket'
-import { clearSession, fetchSessions, fetchSessionMessages, renameSession } from '../api/client'
+import { clearSession, fetchSessions, fetchSessionMessages, renameSession, createSession as apiCreateSession } from '../api/client'
 
 export interface Citation {
   doc_id: string
@@ -167,11 +167,16 @@ export const useChatStore = defineStore('chat', () => {
     } catch (e) { console.error(e) }
   }
 
-  function newSession() {
-    sessionId.value = 'session_' + Date.now()
+  async function newSession() {
+    try {
+      const data = await apiCreateSession('新对话')
+      sessionId.value = data.session_id
+    } catch {
+      sessionId.value = 'session_' + Date.now()
+    }
     messages.value = []
     connect()
-    loadSessions()
+    await loadSessions()
   }
 
   async function renameCurrentSession(title: string) {
@@ -235,12 +240,17 @@ export const useChatStore = defineStore('chat', () => {
     URL.revokeObjectURL(url)
   }
 
+  function disconnect() {
+    ws.value?.disconnect()
+  }
+
   return {
     messages,
     sessions,
     isLoading,
     sessionId,
     connect,
+    disconnect,
     loadSessions,
     switchSession,
     newSession,

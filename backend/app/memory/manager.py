@@ -60,6 +60,7 @@ class MemoryManager:
         user_input: str,
         system_prompt: str = None,
         *,
+        user_id: int | None = None,
         context_strategy: dict | None = None,
     ) -> dict:
         """
@@ -129,10 +130,23 @@ class MemoryManager:
                     print(f"[MemoryManager] Episodic recall skipped: {exc}")
 
         max_history = strategy.get("max_history", 10)
-        chat_history = self.short_term.get_history_summary(
-            session_id,
-            max_messages=max_history,
-        )
+        if user_id:
+            from app.core.database import session_scope
+            from app.services.chat_session_service import chat_session_service
+
+            try:
+                async with session_scope() as db:
+                    chat_history = await chat_session_service.get_history_summary(
+                        db, session_id, user_id, max_messages=max_history
+                    )
+            except Exception as exc:
+                print(f"[MemoryManager] DB history skipped: {exc}")
+                chat_history = ""
+        else:
+            chat_history = self.short_term.get_history_summary(
+                session_id,
+                max_messages=max_history,
+            )
         if chat_history:
             parts.append(f"\n## Recent Conversation History\n{chat_history}")
 
@@ -154,10 +168,26 @@ class MemoryManager:
         user_input: str,
         agent_output: str,
         entities: list[dict] = None,
+        user_id: int | None = None,
     ) -> None:
         """保存对话到短期、长期、情景记忆。"""
-        self.short_term.add_user_message(session_id, user_input)
-        self.short_term.add_ai_message(session_id, agent_output)
+        if user_id:
+            from app.core.database import session_scope
+            from app.services.chat_session_service import chat_session_service
+
+            try:
+                async with session_scope() as db:
+                    await chat_session_service.add_message(
+                        db, session_id, user_id, "user", user_input
+                    )
+                    await chat_session_service.add_message(
+                        db, session_id, user_id, "assistant", agent_output
+                    )
+            except Exception as exc:
+                print(f"[MemoryManager] DB save failed: {exc}")
+        else:
+            self.short_term.add_user_message(session_id, user_input)
+            self.short_term.add_ai_message(session_id, agent_output)
 
         if entities is None:
             entities = extract_entities(f"{user_input}\n{agent_output}", limit=8)
@@ -187,9 +217,10 @@ class MemoryManager:
         """清除会话短期记忆。"""
         self.short_term.clear(session_id)
 
-    async def clear_session_all(self, session_id: str) -> dict:
+    async def clear_session_all(self, session_id: str, user_id: int | None = None) -> dict:
         """清除会话相关的短期、长期与情景记忆。"""
-        self.short_term.clear(session_id)
+        if not user_id:
+            self.short_term.clear(session_id)
         removed = await self.long_term.forget_session(session_id)
         episodic_removed = await self.episodic.clear_session(session_id)
         return {

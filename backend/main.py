@@ -115,7 +115,24 @@ app.include_router(audit_router)
 async def startup_event():
     """Application startup event"""
     from app.core.settings_store import apply_persisted_settings
+    from app.core.database import init_db
+    from app.services.seed import seed_initial_data
+
     apply_persisted_settings()
+
+    try:
+        await init_db()
+        await seed_initial_data()
+        print("[Startup] MySQL schema ready")
+    except Exception as exc:
+        print(f"[Startup] MySQL init skipped: {exc}")
+
+    try:
+        from app.services.redis_init import init_redis_layout
+        await init_redis_layout()
+        print("[Startup] Redis layout ready")
+    except Exception as exc:
+        print(f"[Startup] Redis init skipped: {exc}")
 
     print("=" * 60)
     print(">>> 企业智能体工作台启动中...")
@@ -151,7 +168,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     from app.services.health import get_system_status
-    status = get_system_status()
+    status = await get_system_status()
     code = 200 if status["status"] in ("healthy", "degraded") else 503
     from fastapi.responses import JSONResponse
     return JSONResponse(content=status, status_code=code)

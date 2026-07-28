@@ -274,6 +274,7 @@ Respond in JSON only:
             config.session_id,
             user_input,
             summary_result.output,
+            user_id=config.user_id,
         )
 
         return AgentResponse(
@@ -458,6 +459,7 @@ Respond in JSON only:
                 config.session_id,
                 user_input,
                 final_output,
+                user_id=config.user_id,
             )
             yield AgentEvent(type=AgentEventType.DONE)
 

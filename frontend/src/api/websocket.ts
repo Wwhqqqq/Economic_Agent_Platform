@@ -30,7 +30,9 @@ export class ChatWebSocket {
 
     this.connectPromise = new Promise((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const url = `${protocol}//${window.location.host}/ws/chat/${this.sessionId}`
+      const token = localStorage.getItem('auth_token')
+      const qs = token ? `?token=${encodeURIComponent(token)}` : ''
+      const url = `${protocol}//${window.location.host}/ws/chat/${this.sessionId}${qs}`
 
       console.log('[WS] Connecting to', url)
       this.ws = new WebSocket(url)

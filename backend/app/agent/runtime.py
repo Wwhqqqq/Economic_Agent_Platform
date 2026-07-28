@@ -123,6 +123,7 @@ async def load_agent_context(
                 config.session_id,
                 user_input,
                 system_prompt,
+                user_id=config.user_id,
                 context_strategy=context_strategy,
             ),
             timeout=CONTEXT_LOAD_TIMEOUT,
@@ -321,6 +322,7 @@ async def run_react_loop(
                 config.session_id,
                 user_input,
                 final_output,
+                user_id=config.user_id,
             )
 
         if emit_done:

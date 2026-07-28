@@ -50,7 +50,7 @@ class ChromaDBConfig:
 class Neo4jConfig:
     uri: str = "bolt://localhost:7687"
     user: str = "neo4j"
-    password: str = "Whq050207"
+    password: str = ""
     database: str = "neo4j"
 
 
@@ -135,7 +135,7 @@ class AppConfig:
             neo4j=Neo4jConfig(
                 uri=os.getenv("NEO4J_URI", "bolt://localhost:7688"),
                 user=os.getenv("NEO4J_USER", "neo4j"),
-                password=os.getenv("NEO4J_PASSWORD", "Whq050207"),
+                password=os.getenv("NEO4J_PASSWORD", ""),
                 database=os.getenv("NEO4J_DATABASE", "neo4j"),
             ),
             memory=MemoryConfig(
