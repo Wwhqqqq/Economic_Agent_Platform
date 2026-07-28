@@ -2,12 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends gcc pkg-config default-libmysqlclient-dev \
-    && rm -rf /var/lib/apt/lists/*
+# pymysql / aiomysql are pure Python — no gcc or libmysqlclient-dev needed.
+# Removing apt-get saves ~15–30 min on first build (especially on slow networks).
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_PREFER_BINARY=1
 
 COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+RUN pip install -r /app/backend/requirements.txt
 
 COPY backend /app/backend
 
