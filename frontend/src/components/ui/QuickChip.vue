@@ -24,32 +24,32 @@ defineEmits<{ click: [] }>()
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--chip-bg);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(199, 210, 254, 0.5);
+  border: 1px solid var(--chip-border);
   border-radius: 20px;
-  color: var(--ui-text-regular);
+  color: var(--btn-ghost-color);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.22s ease;
   font-family: var(--ui-font);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .quick-chip:hover {
-  background: linear-gradient(135deg, rgba(238,242,255,0.95), rgba(236,254,255,0.8));
-  border-color: rgba(129, 140, 248, 0.55);
-  color: var(--color-primary);
+  background: var(--chip-hover-bg);
+  border-color: var(--chip-hover-border);
+  color: var(--chip-hover-color);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.15);
+  box-shadow: var(--chip-hover-shadow);
 }
 
 .chip-icon-wrap {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: var(--gradient-primary);
-  color: #fff;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
   display: flex;
   align-items: center;
   justify-content: center;

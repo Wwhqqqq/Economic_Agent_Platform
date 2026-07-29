@@ -82,4 +82,176 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+
+  --sidebar-divider: rgba(199, 210, 254, 0.35);
+  --sidebar-item-hover-bg: rgba(238, 242, 255, 0.7);
+  --sidebar-item-hover-border: rgba(199, 210, 254, 0.4);
+  --sidebar-item-active-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.95), rgba(236, 254, 255, 0.6));
+  --sidebar-item-active-border: rgba(129, 140, 248, 0.45);
+  --sidebar-item-active-shadow: 0 2px 10px rgba(99, 102, 241, 0.1);
+  --nav-item-hover-bg: rgba(238, 242, 255, 0.65);
+  --nav-item-hover-border: rgba(199, 210, 254, 0.35);
+  --nav-item-active-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.95), rgba(245, 243, 255, 0.8));
+  --nav-item-active-border: rgba(129, 140, 248, 0.4);
+  --nav-item-active-shadow: 0 2px 10px rgba(99, 102, 241, 0.08);
+  --user-card-bg: linear-gradient(135deg, rgba(224, 242, 254, 0.55), rgba(238, 242, 255, 0.85));
+  --user-card-border: rgba(96, 165, 250, 0.35);
+  --user-card-member-bg: linear-gradient(135deg, rgba(237, 233, 254, 0.75), rgba(221, 214, 254, 0.45));
+  --user-card-member-border: rgba(139, 92, 246, 0.45);
+  --settings-entry-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.9), rgba(236, 254, 255, 0.6));
+  --settings-entry-border: rgba(199, 210, 254, 0.45);
+  --settings-entry-hover-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.98), rgba(245, 243, 255, 0.85));
+  --settings-entry-hover-border: #a5b4fc;
+  --settings-entry-active-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.98), rgba(236, 254, 255, 0.75));
+  --settings-entry-active-border: rgba(129, 140, 248, 0.55);
+  --upgrade-banner-bg: linear-gradient(135deg, rgba(255, 251, 235, 0.95), rgba(254, 243, 199, 0.35));
+  --upgrade-banner-border: rgba(251, 191, 36, 0.45);
+  --upgrade-banner-text: #92400e;
+  --settings-danger-icon-bg: rgba(254, 226, 226, 0.65);
+
+  --btn-primary-bg: var(--gradient-primary);
+  --btn-primary-color: #fff;
+  --btn-primary-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  --btn-primary-hover-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  --btn-ghost-bg: rgba(255, 255, 255, 0.7);
+  --btn-ghost-color: var(--ui-text-regular);
+  --btn-ghost-border: var(--ui-border);
+  --btn-ghost-hover-bg: var(--ui-primary-light);
+  --btn-ghost-hover-color: var(--ui-primary);
+  --btn-ghost-hover-border: #a5b4fc;
+  --btn-ghost-hover-shadow: 0 2px 10px rgba(99, 102, 241, 0.12);
+  --chip-bg: rgba(255, 255, 255, 0.8);
+  --chip-border: rgba(199, 210, 254, 0.5);
+  --chip-hover-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.95), rgba(236, 254, 255, 0.8));
+  --chip-hover-border: rgba(129, 140, 248, 0.55);
+  --chip-hover-color: var(--color-primary);
+  --chip-hover-shadow: 0 6px 18px rgba(99, 102, 241, 0.15);
+  --settings-content-width: 720px;
+  --theme-card-bg: rgba(255, 255, 255, 0.65);
+  --theme-card-border: rgba(199, 210, 254, 0.5);
+  --theme-card-active-bg: linear-gradient(135deg, rgba(238, 242, 255, 0.95), rgba(236, 254, 255, 0.7));
+  --theme-card-active-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+html[data-theme='dark'] {
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-light: rgba(30, 27, 75, 0.72);
+  --color-primary-muted: rgba(49, 46, 129, 0.55);
+  --color-background: #0f172a;
+  --color-background-alt: #111827;
+  --color-surface: rgba(30, 41, 59, 0.88);
+  --color-surface-solid: #1e293b;
+  --color-foreground: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-border: rgba(71, 85, 105, 0.65);
+  --color-border-light: rgba(51, 65, 85, 0.85);
+  --color-violet: #7c3aed;
+  --color-violet-light: rgba(30, 27, 75, 0.72);
+  --color-accent: #0891b2;
+  --color-accent-light: rgba(8, 145, 178, 0.18);
+  --color-rose: #db2777;
+  --color-amber: #d97706;
+  --accent-border: rgba(71, 85, 105, 0.75);
+
+  --gradient-page: linear-gradient(135deg, #0f172a 0%, #1e1b4b 35%, #172554 70%, #1e293b 100%);
+  --gradient-sidebar: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 27, 75, 0.94) 100%);
+  --gradient-primary: linear-gradient(135deg, #1e1b4b 0%, #312e81 48%, #172554 100%);
+  --gradient-accent: linear-gradient(135deg, #4338ca 0%, #312e81 50%, #1e293b 100%);
+  --gradient-card-shine: linear-gradient(135deg, rgba(30, 41, 59, 0.96) 0%, rgba(30, 27, 75, 0.82) 100%);
+
+  --ui-bg-muted: rgba(30, 41, 59, 0.82);
+  --ui-text-primary: #e2e8f0;
+  --ui-text-regular: #cbd5e1;
+  --ui-text-secondary: #94a3b8;
+  --ui-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);
+  --settings-list-divider: rgba(71, 85, 105, 0.55);
+  --settings-list-hover: rgba(51, 65, 85, 0.55);
+
+  --sidebar-divider: rgba(51, 65, 85, 0.65);
+  --sidebar-item-hover-bg: rgba(30, 41, 59, 0.75);
+  --sidebar-item-hover-border: rgba(71, 85, 105, 0.55);
+  --sidebar-item-active-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(30, 27, 75, 0.75));
+  --sidebar-item-active-border: rgba(71, 85, 105, 0.65);
+  --sidebar-item-active-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --nav-item-hover-bg: rgba(30, 41, 59, 0.72);
+  --nav-item-hover-border: rgba(71, 85, 105, 0.5);
+  --nav-item-active-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(30, 27, 75, 0.82));
+  --nav-item-active-border: rgba(71, 85, 105, 0.65);
+  --nav-item-active-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  --user-card-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.88), rgba(30, 27, 75, 0.72));
+  --user-card-border: rgba(71, 85, 105, 0.65);
+  --user-card-member-bg: linear-gradient(135deg, rgba(49, 46, 129, 0.55), rgba(30, 27, 75, 0.65));
+  --user-card-member-border: rgba(71, 85, 105, 0.65);
+  --settings-entry-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(30, 27, 75, 0.68));
+  --settings-entry-border: rgba(71, 85, 105, 0.65);
+  --settings-entry-hover-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(30, 27, 75, 0.85));
+  --settings-entry-hover-border: rgba(71, 85, 105, 0.8);
+  --settings-entry-active-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(30, 27, 75, 0.88));
+  --settings-entry-active-border: rgba(71, 85, 105, 0.85);
+  --upgrade-banner-bg: linear-gradient(135deg, rgba(30, 27, 75, 0.72), rgba(15, 23, 42, 0.88));
+  --upgrade-banner-border: rgba(71, 85, 105, 0.65);
+  --upgrade-banner-text: #c7d2fe;
+  --settings-danger-icon-bg: rgba(127, 29, 29, 0.35);
+
+  --btn-primary-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #172554 100%);
+  --btn-primary-color: #e0e7ff;
+  --btn-primary-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --btn-primary-hover-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
+  --btn-ghost-bg: rgba(15, 23, 42, 0.95);
+  --btn-ghost-color: #cbd5e1;
+  --btn-ghost-border: rgba(51, 65, 85, 0.85);
+  --btn-ghost-hover-bg: rgba(30, 41, 59, 0.98);
+  --btn-ghost-hover-color: #e2e8f0;
+  --btn-ghost-hover-border: rgba(71, 85, 105, 0.95);
+  --btn-ghost-hover-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --chip-bg: rgba(15, 23, 42, 0.92);
+  --chip-border: rgba(51, 65, 85, 0.85);
+  --chip-hover-bg: rgba(30, 41, 59, 0.95);
+  --chip-hover-border: rgba(71, 85, 105, 0.9);
+  --chip-hover-color: #c7d2fe;
+  --chip-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --theme-card-bg: rgba(15, 23, 42, 0.92);
+  --theme-card-border: rgba(51, 65, 85, 0.85);
+  --theme-card-active-bg: rgba(30, 41, 59, 0.98);
+  --theme-card-active-shadow: 0 0 0 3px rgba(30, 27, 75, 0.65);
+}
+
+html[data-theme='dark'] body {
+  color: var(--ui-text-primary);
+}
+
+html[data-theme='dark'] .el-input__wrapper,
+html[data-theme='dark'] .el-textarea__inner {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(71, 85, 105, 0.75) !important;
+  color: var(--ui-text-primary);
+}
+
+html[data-theme='dark'] .el-input__wrapper:hover,
+html[data-theme='dark'] .el-textarea__inner:hover {
+  border-color: rgba(99, 102, 241, 0.55) !important;
+}
+
+html[data-theme='dark'] .el-input__wrapper.is-focus,
+html[data-theme='dark'] .el-textarea__inner:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.35) !important;
+}
+
+html[data-theme='dark'] .el-input__inner:-webkit-autofill,
+html[data-theme='dark'] .el-input__inner:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.92) inset !important;
+  box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.92) inset !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+}
+
+html[data-theme='dark'] .el-tag.el-tag--primary.is-plain {
+  background: rgba(67, 56, 202, 0.28) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  color: #c7d2fe !important;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #475569, #4338ca);
 }

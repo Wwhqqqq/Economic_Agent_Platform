@@ -13,6 +13,7 @@
         </div>
         <h1>企业智能体工作台</h1>
         <p class="subtitle">登录您的账号，进入多用户智能体协作空间</p>
+        <p v-if="isSwitchMode" class="switch-hint">请登录其他账号</p>
       </div>
 
       <GradientDivider spacing="0 0 24px" />
@@ -70,16 +71,19 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Monitor, User, Lock } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import GlassCard from '../components/ui/GlassCard.vue'
 import GradientDivider from '../components/ui/GradientDivider.vue'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
+
+const isSwitchMode = computed(() => route.query.switch === '1')
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
@@ -110,7 +114,8 @@ async function handleLogin() {
   try {
     const data = await auth.login(form.username.trim(), form.password)
     ElMessage.success(`欢迎回来，${data.username}（${auth.userTypeDisplay}）`)
-    await router.push('/')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.push(redirect)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : '登录失败，请稍后重试'
     errorMsg.value = msg
@@ -209,6 +214,13 @@ async function handleLogin() {
   font-size: 0.875rem;
   color: var(--ui-text-secondary);
   line-height: 1.5;
+}
+
+.switch-hint {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .login-form {

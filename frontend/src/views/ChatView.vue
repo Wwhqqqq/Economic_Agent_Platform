@@ -498,9 +498,9 @@ function quickAction(type: string) {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: var(--gradient-primary);
+  background: var(--btn-primary-bg);
   border: none;
-  color: white;
+  color: var(--btn-primary-color);
   cursor: pointer;
   transition: all 0.22s ease;
   flex-shrink: 0;
@@ -508,12 +508,12 @@ function quickAction(type: string) {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+  box-shadow: var(--btn-primary-shadow);
 }
 
 .btn-send:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.45);
+  box-shadow: var(--btn-primary-hover-shadow);
 }
 
 .steps-timeline {
@@ -582,6 +582,6 @@ function quickAction(type: string) {
 .cite-label { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--ui-text-primary); display: flex; align-items: center; gap: 4px; }
 .cite-title { font-size: 12px; font-weight: 600; }
 .cite-snippet { font-size: 12px; color: var(--ui-text-regular); margin-top: 4px; line-height: 1.5; }
-.export-btn { float: right; font-size: 11px; padding: 2px 8px; border: 1px solid var(--ui-border); border-radius: 6px; background: rgba(255,255,255,0.8); cursor: pointer; color: var(--ui-text-regular); }
-.export-btn:hover { color: var(--color-primary); border-color: var(--color-primary); }
+.export-btn { float: right; font-size: 11px; padding: 2px 8px; border: 1px solid var(--btn-ghost-border); border-radius: 6px; background: var(--btn-ghost-bg); cursor: pointer; color: var(--btn-ghost-color); }
+.export-btn:hover { color: var(--btn-ghost-hover-color); border-color: var(--btn-ghost-hover-border); background: var(--btn-ghost-hover-bg); }
 </style>

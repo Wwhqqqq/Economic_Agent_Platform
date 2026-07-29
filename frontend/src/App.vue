@@ -56,19 +56,14 @@
           <el-icon class="nav-icon-el"><Collection /></el-icon>
           <span>知识资产</span>
         </router-link>
-
-        <div class="nav-section-label">系统</div>
-        <router-link to="/settings" class="nav-item" active-class="active">
-          <el-icon class="nav-icon-el"><Setting /></el-icon>
-          <span>模型与接入</span>
-        </router-link>
       </nav>
 
       <div class="sidebar-footer">
         <div v-if="authStore.username" class="user-card" :class="{ member: authStore.isMember }">
           <div class="user-identity">
             <div class="user-avatar" :class="{ member: authStore.isMember }">
-              {{ userInitial }}
+              <img v-if="authStore.avatarUrl" :src="authStore.avatarUrl" alt="" class="user-avatar-img" />
+              <span v-else>{{ userInitial }}</span>
             </div>
             <div class="user-info">
               <span class="user-name">{{ authStore.username }}</span>
@@ -80,12 +75,19 @@
               />
             </div>
           </div>
-          <button type="button" class="logout-btn" @click="handleLogout">退出</button>
         </div>
-        <div class="footer-card">
-          <div class="footer-title">企业版</div>
-          <div class="version">v1.0.0</div>
-        </div>
+        <router-link
+          to="/settings"
+          class="settings-entry-btn"
+          :class="{ active: isSettingsRoute }"
+        >
+          <el-icon class="settings-icon"><Setting /></el-icon>
+          <div class="settings-entry-text">
+            <span class="settings-label">设置</span>
+            <span class="settings-version">{{ versionLabel }}</span>
+          </div>
+          <el-icon class="settings-arrow"><ArrowRight /></el-icon>
+        </router-link>
       </div>
     </aside>
 
@@ -114,12 +116,14 @@ import {
   User,
   Collection,
   Setting,
+  ArrowRight,
   WarningFilled,
 } from '@element-plus/icons-vue'
 import { usePlatformStore } from './stores/platform'
 import { useSystemStore } from './stores/system'
 import { useChatStore } from './stores/chat'
 import { useAuthStore } from './stores/auth'
+import { formatVersionLabel } from './utils/appVersion'
 import DecorativeBg from './components/ui/DecorativeBg.vue'
 import MembershipBadge from './components/ui/MembershipBadge.vue'
 
@@ -132,6 +136,8 @@ const authStore = useAuthStore()
 
 const isChatRoute = computed(() => route.path === '/')
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
+const isSettingsRoute = computed(() => route.path.startsWith('/settings'))
+const versionLabel = formatVersionLabel()
 
 const userInitial = computed(() => {
   const name = authStore.username
@@ -166,12 +172,6 @@ async function createSession() {
 async function selectSession(id: string) {
   if (route.path !== '/') await router.push('/')
   if (id !== chatStore.sessionId) chatStore.switchSession(id)
-}
-
-async function handleLogout() {
-  authStore.logout()
-  chatStore.disconnect()
-  await router.push('/login')
 }
 
 onMounted(async () => {
@@ -218,7 +218,7 @@ watch(isAuthRoute, async (onAuthPage) => {
 
 .sidebar-header {
   padding: 20px 16px 14px;
-  border-bottom: 1px solid rgba(199, 210, 254, 0.35);
+  border-bottom: 1px solid var(--sidebar-divider);
   background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%);
 }
 
@@ -319,19 +319,19 @@ watch(isAuthRoute, async (onAuthPage) => {
   margin-bottom: 10px;
   border: none;
   border-radius: 12px;
-  background: var(--gradient-primary);
-  color: #fff;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.25s ease;
   font-family: var(--ui-font);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  box-shadow: var(--btn-primary-shadow);
 }
 
 .new-chat-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  box-shadow: var(--btn-primary-hover-shadow);
   filter: brightness(1.05);
 }
 
@@ -340,7 +340,7 @@ watch(isAuthRoute, async (onAuthPage) => {
   overflow-y: auto;
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid rgba(199, 210, 254, 0.35);
+  border-bottom: 1px solid var(--sidebar-divider);
 }
 
 .session-item {
@@ -356,14 +356,14 @@ watch(isAuthRoute, async (onAuthPage) => {
 }
 
 .session-item:hover {
-  background: rgba(238, 242, 255, 0.7);
-  border-color: rgba(199, 210, 254, 0.4);
+  background: var(--sidebar-item-hover-bg);
+  border-color: var(--sidebar-item-hover-border);
 }
 
 .session-item.active {
-  background: linear-gradient(135deg, rgba(238,242,255,0.95), rgba(236,254,255,0.6));
-  border-color: rgba(129, 140, 248, 0.45);
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.1);
+  background: var(--sidebar-item-active-bg);
+  border-color: var(--sidebar-item-active-border);
+  box-shadow: var(--sidebar-item-active-shadow);
 }
 
 .session-item.active .session-title {
@@ -424,17 +424,17 @@ watch(isAuthRoute, async (onAuthPage) => {
 }
 
 .nav-item:hover {
-  background: rgba(238, 242, 255, 0.65);
+  background: var(--nav-item-hover-bg);
   color: var(--ui-text-primary);
-  border-color: rgba(199, 210, 254, 0.35);
+  border-color: var(--nav-item-hover-border);
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(238,242,255,0.95), rgba(245,243,255,0.8));
+  background: var(--nav-item-active-bg);
   color: var(--color-primary);
   font-weight: 600;
-  border-color: rgba(129, 140, 248, 0.4);
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.08);
+  border-color: var(--nav-item-active-border);
+  box-shadow: var(--nav-item-active-shadow);
 }
 
 .nav-item.active::before {
@@ -460,20 +460,24 @@ watch(isAuthRoute, async (onAuthPage) => {
 
 .sidebar-footer {
   padding: 12px 16px 16px;
-  border-top: 1px solid rgba(199, 210, 254, 0.35);
+  border-top: 1px solid var(--sidebar-divider);
 }
 
 .user-card {
   margin-bottom: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(224, 242, 254, 0.55), rgba(238, 242, 255, 0.85));
-  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: var(--user-card-bg);
+  border: 1px solid var(--user-card-border);
+}
+
+.user-card .user-identity {
+  margin-bottom: 0;
 }
 
 .user-card.member {
-  background: linear-gradient(135deg, rgba(237, 233, 254, 0.75), rgba(221, 214, 254, 0.45));
-  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: var(--user-card-member-bg);
+  border: 1px solid var(--user-card-member-border);
 }
 
 .user-identity {
@@ -496,11 +500,18 @@ watch(isAuthRoute, async (onAuthPage) => {
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  overflow: hidden;
 }
 
 .user-avatar.member {
   background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
   box-shadow: 0 2px 10px rgba(139, 92, 246, 0.35);
+}
+
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-info {
@@ -519,41 +530,67 @@ watch(isAuthRoute, async (onAuthPage) => {
   text-overflow: ellipsis;
 }
 
-.logout-btn {
-  width: 100%;
-  border: 1px solid rgba(199, 210, 254, 0.5);
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--ui-text-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 6px 0;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.logout-btn:hover {
-  color: #6366f1;
-  border-color: #a5b4fc;
-  background: var(--ui-primary-light);
-}
-
 .footer-card {
   padding: 12px 14px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(238,242,255,0.9), rgba(236,254,255,0.6));
-  border: 1px solid rgba(199, 210, 254, 0.45);
+  background: var(--settings-entry-bg);
+  border: 1px solid var(--settings-entry-border);
 }
 
-.footer-title {
-  font-size: 12px;
-  font-weight: 600;
+.settings-entry-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--settings-entry-border);
+  background: var(--settings-entry-bg);
   color: var(--ui-text-primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
 }
 
-.version {
+.settings-entry-btn:hover {
+  border-color: var(--settings-entry-hover-border);
+  background: var(--settings-entry-hover-bg);
+  box-shadow: 0 4px 14px rgba(30, 27, 75, 0.2);
+}
+
+.settings-entry-btn.active {
+  border-color: var(--settings-entry-active-border);
+  background: var(--settings-entry-active-bg);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.settings-icon {
+  font-size: 18px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.settings-entry-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-version {
   font-size: 11px;
   color: var(--ui-text-secondary);
-  margin-top: 2px;
+}
+
+.settings-arrow {
+  font-size: 14px;
+  color: var(--ui-text-secondary);
+  flex-shrink: 0;
 }
 
 .main-content {

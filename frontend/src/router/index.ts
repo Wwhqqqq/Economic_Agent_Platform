@@ -11,7 +11,44 @@ const router = createRouter({
     { path: '/skills', name: 'skills', component: () => import('../views/SkillsView.vue') },
     { path: '/agents', name: 'agents', component: () => import('../views/AgentsView.vue') },
     { path: '/knowledge', name: 'knowledge', component: () => import('../views/KnowledgeView.vue') },
-    { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') },
+    { path: '/membership', name: 'membership', component: () => import('../views/MembershipView.vue') },
+    {
+      path: '/settings',
+      component: () => import('../views/SettingsView.vue'),
+      redirect: '/settings',
+      children: [
+        {
+          path: '',
+          name: 'settings-index',
+          component: () => import('../views/settings/SettingsIndex.vue'),
+        },
+        {
+          path: 'account',
+          name: 'settings-account',
+          component: () => import('../views/settings/AccountSettings.vue'),
+        },
+        {
+          path: 'appearance',
+          name: 'settings-appearance',
+          component: () => import('../views/settings/AppearanceSettings.vue'),
+        },
+        {
+          path: 'model',
+          name: 'settings-model',
+          component: () => import('../views/settings/ModelSettings.vue'),
+        },
+        {
+          path: 'privacy',
+          name: 'settings-privacy',
+          component: () => import('../views/settings/PrivacySettings.vue'),
+        },
+        {
+          path: 'about',
+          name: 'settings-about',
+          component: () => import('../views/settings/AboutSettings.vue'),
+        },
+      ],
+    },
   ],
 })
 
@@ -19,11 +56,14 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   auth.syncTokenFromStorage()
   if (!auth.checked) await auth.checkAuth()
-  if (auth.authEnabled && !auth.token && to.name !== 'login' && to.name !== 'register') {
-    return { name: 'login' }
+
+  const isPublic = to.name === 'login' || to.name === 'register'
+  if (auth.authEnabled && !auth.token && !isPublic) {
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if ((to.name === 'login' || to.name === 'register') && auth.token) {
-    return { name: 'chat' }
+  if (isPublic && auth.token) {
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/'
+    return redirect
   }
 })
 
