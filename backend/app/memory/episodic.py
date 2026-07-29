@@ -40,6 +40,7 @@ class EpisodicMemory:
         agent_msg: str,
         entities: list[dict] = None,
         topic: str = None,
+        user_id: int | None = None,
     ) -> None:
         """
         记录一次对话事件
@@ -57,6 +58,7 @@ class EpisodicMemory:
             session_id=session_id,
             user_msg=user_msg,
             agent_msg=agent_msg,
+            user_id=user_id,
             entities=[e["name"] for e in entities if e.get("name")],
         )
 
@@ -83,15 +85,11 @@ class EpisodicMemory:
         """
         return self._neo4j.get_relations(entity_name, depth)
 
-    async def recall_graph_context(self, entity_names: list[str]) -> str:
-        """
-        召回知识图谱上下文并格式化为文本
-        用于注入 Agent 上下文
-        """
+    async def recall_graph_context(self, entity_names: list[str], user_id: int | None = None) -> str:
         if not entity_names:
             return ""
 
-        results = self._neo4j.graph_retrieve(entity_names)
+        results = self._neo4j.graph_retrieve(entity_names, user_id=user_id)
         if not results:
             return ""
 
@@ -122,5 +120,5 @@ class EpisodicMemory:
         )
         return [r.get("m.user", "")[:100] for r in results]
 
-    async def clear_session(self, session_id: str) -> int:
-        return self._neo4j.clear_session(session_id)
+    async def clear_session(self, session_id: str, user_id: int | None = None) -> int:
+        return self._neo4j.clear_session(session_id, user_id=user_id)

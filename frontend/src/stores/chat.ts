@@ -117,7 +117,9 @@ export const useChatStore = defineStore('chat', () => {
     ws.value.on('final', (data) => {
       const last = messages.value[messages.value.length - 1]
       if (last?.role === 'assistant') {
-        last.content = data.output
+        if (data.output && data.output !== last.content) {
+          last.content = data.output
+        }
         last.isStreaming = false
         last.thinking = false
         last.tool_calls = data.tool_calls || []

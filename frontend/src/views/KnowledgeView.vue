@@ -38,11 +38,12 @@
 
         <GlassCard class="panel">
           <h3 class="section-title panel-title">文档列表</h3>
+          <p class="panel-desc">仅展示当前账号上传的私有文档。</p>
           <el-alert v-if="stats.graph_available === false" type="warning" show-icon :closable="false" title="知识图谱服务暂不可用，入库仍可写入向量库" />
           <div v-if="documents.length" class="doc-list">
             <div v-for="(d, idx) in documents" :key="d.doc_id" class="doc-item">
               <div>
-                <span class="doc-index">文档 {{ idx + 1 }}</span>
+                <span class="doc-index">{{ d.title || `文档 ${idx + 1}` }}</span>
                 <span class="doc-preview">{{ d.preview }}</span>
               </div>
               <button class="ui-btn-ghost" @click="removeDoc(d.doc_id)">删除</button>

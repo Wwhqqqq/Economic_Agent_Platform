@@ -1,7 +1,5 @@
 """
 混合检索器 — RRF (Reciprocal Rank Fusion) 融合策略
-
-将向量检索（语义相似度）和知识图谱检索（实体关系/文档）的结果融合排序。
 """
 from typing import Literal
 
@@ -10,6 +8,7 @@ from langchain_core.runnables import RunnableLambda
 
 from app.rag.entity_extractor import build_document_title, extract_entities
 from app.rag.knowledge_graph import KnowledgeGraphRetriever
+from app.rag.tenant_filter import knowledge_metadata
 from app.rag.vector_store import VectorStoreRetriever
 
 
@@ -26,22 +25,33 @@ class HybridRetriever:
         query: str,
         top_k: int = 5,
         mode: Literal["vector", "graph", "hybrid"] = "hybrid",
-        rrf_k: int = None,
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
+        rrf_k: int | None = None,
     ) -> list[Document]:
+        kwargs = {"user_id": user_id, "user_type": user_type}
         if mode == "vector":
-            return self.vector_retriever.retrieve(query, top_k)
+            return self.vector_retriever.retrieve(query, top_k, **kwargs)
         if mode == "graph":
-            return self.graph_retriever.retrieve(query, top_k)
+            return self.graph_retriever.retrieve(query, top_k, **kwargs)
         if mode == "hybrid":
-            return self._hybrid_retrieve(query, top_k, rrf_k)
+            return self._hybrid_retrieve(query, top_k, rrf_k, **kwargs)
         raise ValueError(f"Unknown mode: {mode}")
 
     def _hybrid_retrieve(
-        self, query: str, top_k: int, rrf_k: int = None
+        self,
+        query: str,
+        top_k: int,
+        rrf_k: int | None = None,
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
     ) -> list[Document]:
         rrf_k = rrf_k or self._rrf_k
-        vector_docs = self.vector_retriever.retrieve(query, top_k * 2)
-        graph_docs = self.graph_retriever.retrieve(query, top_k * 2)
+        kwargs = {"user_id": user_id, "user_type": user_type}
+        vector_docs = self.vector_retriever.retrieve(query, top_k * 2, **kwargs)
+        graph_docs = self.graph_retriever.retrieve(query, top_k * 2, **kwargs)
         fused = self._rrf_fusion(vector_docs, graph_docs, rrf_k)
         return fused[:top_k]
 
@@ -88,17 +98,19 @@ class HybridRetriever:
         query: str,
         top_k: int = 5,
         mode: str = "hybrid",
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
     ) -> str:
-        docs = self.retrieve(query, top_k, mode=mode)  # type: ignore[arg-type]
+        docs = self.retrieve(
+            query, top_k, mode=mode, user_id=user_id, user_type=user_type  # type: ignore[arg-type]
+        )
         if not docs:
             return ""
 
         lines = ["## Retrieved Knowledge Base"]
         for index, doc in enumerate(docs):
-            score = doc.metadata.get(
-                "score",
-                doc.metadata.get("rrf_score", 0),
-            )
+            score = doc.metadata.get("score", doc.metadata.get("rrf_score", 0))
             source = doc.metadata.get("source", "unknown")
             title = doc.metadata.get("entity_name") or doc.metadata.get("doc_id") or f"Doc {index + 1}"
             lines.append(f"\n### [{source}] {title} (score: {float(score):.3f})")
@@ -109,12 +121,18 @@ class HybridRetriever:
         def _retrieve(inputs: dict | str):
             if isinstance(inputs, str):
                 query = inputs
+                user_id = None
+                user_type = "regular"
             elif isinstance(inputs, dict):
                 query = inputs.get("query", inputs.get("input", ""))
+                user_id = inputs.get("user_id")
+                user_type = inputs.get("user_type", "regular")
             else:
                 query = str(inputs)
+                user_id = None
+                user_type = "regular"
 
-            docs = self.retrieve(query)
+            docs = self.retrieve(query, user_id=user_id, user_type=user_type)
             return {
                 "query": query,
                 "context": self._docs_to_text(docs),
@@ -133,14 +151,21 @@ class HybridRetriever:
         self,
         content: str,
         doc_id: str,
+        *,
+        user_id: int,
+        visibility: Literal["private", "member"] = "private",
         metadata: dict = None,
         entities: list[dict] = None,
     ) -> dict:
-        """
-        同时添加到向量库和知识图谱（自动抽取实体）。
-        """
-        meta = {"source": "knowledge_upload", **(metadata or {})}
-        self.vector_retriever.add_document(content, doc_id, meta)
+        meta = knowledge_metadata(
+            doc_id=doc_id,
+            user_id=user_id,
+            visibility=visibility,
+            **(metadata or {}),
+        )
+        self.vector_retriever.add_document(
+            content, doc_id, meta, user_id=user_id, visibility=visibility
+        )
 
         extracted = entities or extract_entities(content)
         title = build_document_title(content, doc_id)
@@ -148,6 +173,8 @@ class HybridRetriever:
             doc_id=doc_id,
             title=title,
             content=content,
+            user_id=user_id,
+            visibility=visibility,
             metadata=meta,
             entities=extracted,
         )
@@ -159,13 +186,14 @@ class HybridRetriever:
                         entity["name"],
                         other["name"],
                         "RELATED_TO",
-                        {"doc_id": doc_id},
+                        user_id=user_id,
+                        properties={"doc_id": doc_id},
                     )
                 except Exception:
                     pass
 
         print(
-            f"[HybridRetriever] Added knowledge: {doc_id} "
+            f"[HybridRetriever] Added knowledge: {doc_id} user={user_id} "
             f"(entities={len(extracted)})"
         )
         return {
@@ -174,19 +202,28 @@ class HybridRetriever:
             "entities": extracted[:10],
         }
 
-    def stats(self) -> dict:
+    def stats(self, user_id: int | None = None, user_type: str = "regular") -> dict:
         return {
-            "vector_docs": self.vector_retriever.count(),
-            "graph_entities": self.graph_retriever.count_entities(),
-            "graph_documents": self.graph_retriever.count_documents(),
+            "vector_docs": self.vector_retriever.count(user_id, user_type),
+            "graph_entities": self.graph_retriever.count_entities(user_id),
+            "graph_documents": self.graph_retriever.count_documents(user_id),
             "graph_available": self.graph_retriever.available,
         }
 
-    def list_documents(self, limit: int = 100, offset: int = 0) -> list[dict]:
-        return self.vector_retriever.list_documents(limit=limit, offset=offset)
+    def list_documents(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
+    ) -> list[dict]:
+        return self.vector_retriever.list_documents(
+            limit=limit, offset=offset, user_id=user_id, user_type=user_type
+        )
 
-    def delete_knowledge(self, doc_id: str) -> dict:
+    def delete_knowledge(self, doc_id: str, *, user_id: int | None = None) -> dict:
         self.vector_retriever.delete(doc_id)
         if self.graph_retriever.available:
-            self.graph_retriever.delete_document(doc_id)
+            self.graph_retriever.delete_document(doc_id, user_id=user_id)
         return {"doc_id": doc_id, "status": "deleted"}

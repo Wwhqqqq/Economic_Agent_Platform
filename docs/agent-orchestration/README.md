@@ -55,9 +55,11 @@ Agent 编排模块是整个平台的**执行中枢**。它负责：接收用户�
 4. **ReAct 循环**（最多 `AGENT_MAX_ITERATIONS` 次，默认 10）：
    - 向 LLM 发送当前消息列表（含历史 tool_call / tool_result）。
    - 若模型返回 `tool_calls`：逐个执行工具，将结果封装为 `ToolMessage` 追加到上下文，继续下一轮。
-   - 若模型返回纯文本：视为最终答案，流式推送给前端，退出循环。
+   - 若模型返回纯文本：通过 LLM **`astream` 真 token 流** 推送 `REASONING` 事件，退出循环（失败时降级为切块假流式）。
 
 5. **收尾**：可选地将本轮 user/assistant 消息写入记忆；发送 `FINAL` 与 `DONE` 事件。
+
+**流式配置**：环境变量 `AGENT_STREAMING_ENABLED`（默认 `true`）、`AGENT_STREAM_FALLBACK_CHUNK_SIZE`（默认 `24`）。详见 [LLM 真流式输出 PRD](./prd/LLM真流式输出-PRD.md)。
 
 **设计要点**：这是典型的 LangChain ReAct 模式，但实现为显式 Python 循环而非 LangGraph 状态图，便于调试和自定义事件流。
 
@@ -147,6 +149,8 @@ AgentOrchestrator
 
 ## 相关文档
 
+- [执行模式详解](./02-执行模式详解.md) — 智能路由 / 推理闭环 / 任务编排 / 协同决策 与 ReAct / Plan-Execute / Multi-Agent 对照
+- [LLM 真流式输出 PRD](./prd/LLM真流式输出-PRD.md) — Token 级流式改造需求（待评审）
 - [记忆模块](../memory/README.md) — 上下文如何被注入
 - [技能模块](../skills/README.md) — 如何改变 Agent 行为
 - [多 Agent 模块](../multi-agent/README.md) — 协同决策模式详解

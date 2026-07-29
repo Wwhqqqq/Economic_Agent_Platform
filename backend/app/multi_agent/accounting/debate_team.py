@@ -23,7 +23,8 @@ from app.agent.runtime import (
     message_content,
     normalize_agent_config,
     run_prompt_tool_loop,
-    stream_text_as_reasoning,
+    stream_llm_text_events,
+    TextStreamComplete,
 )
 from app.core.config import config as app_config
 from app.memory.manager import memory_manager
@@ -109,6 +110,7 @@ class AccountingDebateTeam(MultiAgentTeam):
         role: str,
         round_num: int,
         temperature: float,
+        config: AgentConfig,
     ) -> AsyncIterator[AgentEvent | tuple[str, list[dict]]]:
         output = ""
         tool_calls: list[dict] = []
@@ -117,6 +119,7 @@ class AccountingDebateTeam(MultiAgentTeam):
             temperature=temperature,
             tools=self._debate_tools,
             max_iterations=ROLE_MAX_TOOL_ITERATIONS,
+            config=config,
         ):
             if event.type == AgentEventType.FINAL:
                 output = event.data.get("output", "")
@@ -292,6 +295,7 @@ Deliver your final judgment in markdown with sections:
                     role="analyst",
                     round_num=round_num,
                     temperature=0.4,
+                    config=config,
                 ):
                     if isinstance(item, tuple):
                         debate_round.proposer_argument, tools = item
@@ -315,6 +319,7 @@ Deliver your final judgment in markdown with sections:
                     role="skeptic",
                     round_num=round_num,
                     temperature=0.5,
+                    config=config,
                 ):
                     if isinstance(item, tuple):
                         debate_round.opponent_argument, tools = item
@@ -336,18 +341,61 @@ Deliver your final judgment in markdown with sections:
                         "message": "裁决官正在总结本轮...",
                     },
                 )
-                judge_response = await self._judge_llm.ainvoke(
-                    [HumanMessage(content=judge_prompt)]
-                )
-                debate_round.judge_summary = message_content(judge_response)
-                async for event in stream_text_as_reasoning(debate_round.judge_summary):
-                    event.metadata.update({"role": "judge", "round": round_num})
-                    yield event
+                judge_text = ""
+                async for item in stream_llm_text_events(
+                    self._judge_llm,
+                    [HumanMessage(content=judge_prompt)],
+                    config,
+                ):
+                    if isinstance(item, TextStreamComplete):
+                        judge_text = item.text
+                    else:
+                        item.metadata.update({"role": "judge", "round": round_num})
+                        yield item
+                debate_round.judge_summary = judge_text
 
                 result.rounds.append(debate_round)
                 previous_context = debate_round.judge_summary
 
-            verdict, _ = await self._final_judgment(user_input, result, config)
+            rounds_text = "\n\n".join(
+                f"### Round {r.round_number}\n"
+                f"**Analyst**: {r.proposer_argument[:500]}...\n"
+                f"**Skeptic**: {r.opponent_argument[:500]}...\n"
+                f"**Judge**: {r.judge_summary}"
+                for r in result.rounds
+            )
+            final_prompt = f"""{JUDGE_SYSTEM_PROMPT}
+
+Original Topic: {user_input}
+
+Debate History:
+{rounds_text}
+
+Deliver your final judgment in markdown with sections:
+## Final Verdict
+## Key Findings
+## Risks to Monitor
+## Consensus Points
+## Recommended Next Steps
+"""
+            verdict = ""
+            async for item in stream_llm_text_events(
+                self._judge_llm,
+                [HumanMessage(content=final_prompt)],
+                config,
+            ):
+                if isinstance(item, TextStreamComplete):
+                    verdict = item.text
+                else:
+                    item.metadata.update({"role": "judge", "phase": "final"})
+                    yield item
+
+            structured = self._parse_verdict_sections(verdict)
+            result.final_verdict = verdict
+            result.key_findings = structured.get("key_findings", [])
+            result.risks_identified = structured.get("risks_identified", [])
+            result.consensus_points = structured.get("consensus_points", [])
+
             yield AgentEvent(
                 type=AgentEventType.FINAL,
                 data={

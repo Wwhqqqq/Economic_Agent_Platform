@@ -314,7 +314,7 @@ async function handleSendCode() {
       return
     }
     clearError('verification_code')
-    ElMessage.success('验证码已发送，请查收邮件（开发环境请查看后端控制台）')
+    ElMessage.success('验证码已发送，请查收邮件')
     startCooldown(data.retry_after_seconds ?? 60)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : '发送失败，请稍后重试'

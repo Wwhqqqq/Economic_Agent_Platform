@@ -15,6 +15,7 @@ from datetime import datetime
 
 from app.core.config import config
 from app.db.chroma import get_chroma_client
+from app.rag.tenant_filter import build_user_filter
 
 LONG_TERM_COLLECTION = "long_term_memory"
 VECTOR_MEMORY_TIMEOUT = float(os.getenv("VECTOR_MEMORY_TIMEOUT", "5"))
@@ -49,6 +50,7 @@ class LongTermMemory:
         session_id: str,
         metadata: dict = None,
         importance: float = 0.5,
+        user_id: int | None = None,
     ) -> str:
         """存储一条长期记忆"""
         mem_id = str(uuid.uuid4())
@@ -61,6 +63,8 @@ class LongTermMemory:
             "importance": importance,
             **(metadata or {}),
         }
+        if user_id is not None:
+            meta["user_id"] = int(user_id)
         try:
             await asyncio.wait_for(
                 asyncio.to_thread(
@@ -79,18 +83,25 @@ class LongTermMemory:
         return mem_id
 
     async def recall(
-        self, query: str, top_k: int = None, min_importance: float = 0.0
+        self, query: str, top_k: int = None, min_importance: float = 0.0, user_id: int | None = None
     ) -> list[dict]:
         """检索相关长期记忆"""
         if not self._enabled:
             return []
 
         top_k = top_k or config.memory.long_term_top_k
+        where = build_user_filter(user_id) if user_id is not None else None
         try:
-            count = await asyncio.wait_for(
-                asyncio.to_thread(self._chroma.count, LONG_TERM_COLLECTION),
-                timeout=VECTOR_MEMORY_TIMEOUT,
-            )
+            if where:
+                count = await asyncio.wait_for(
+                    asyncio.to_thread(self._chroma.count_where, LONG_TERM_COLLECTION, where),
+                    timeout=VECTOR_MEMORY_TIMEOUT,
+                )
+            else:
+                count = await asyncio.wait_for(
+                    asyncio.to_thread(self._chroma.count, LONG_TERM_COLLECTION),
+                    timeout=VECTOR_MEMORY_TIMEOUT,
+                )
             if count == 0:
                 return []
 
@@ -100,7 +111,7 @@ class LongTermMemory:
                     LONG_TERM_COLLECTION,
                     [query],
                     top_k,
-                    None,
+                    where,
                 ),
                 timeout=VECTOR_MEMORY_TIMEOUT,
             )
@@ -128,9 +139,9 @@ class LongTermMemory:
             print(f"[LongTermMemory] Recalled {len(memories)} memories for query")
         return memories
 
-    async def recall_formatted(self, query: str, top_k: int = None) -> str:
+    async def recall_formatted(self, query: str, top_k: int = None, user_id: int | None = None) -> str:
         """检索并格式化为可注入上下文的文本"""
-        memories = await self.recall(query, top_k)
+        memories = await self.recall(query, top_k, user_id=user_id)
         if not memories:
             return ""
 
@@ -150,18 +161,21 @@ class LongTermMemory:
         except Exception as e:
             print(f"[LongTermMemory] Forget failed: {e}")
 
-    async def forget_session(self, session_id: str) -> int:
+    async def forget_session(self, session_id: str, user_id: int | None = None) -> int:
         """删除某个会话的所有记忆"""
         if not self._enabled:
             return 0
         try:
+            where: dict = {"session_id": session_id}
+            if user_id is not None:
+                where = {"$and": [{"session_id": session_id}, {"user_id": int(user_id)}]}
             results = await asyncio.wait_for(
                 asyncio.to_thread(
                     self._chroma.query,
                     LONG_TERM_COLLECTION,
                     [""],
                     100,
-                    {"session_id": session_id},
+                    where,
                 ),
                 timeout=VECTOR_MEMORY_TIMEOUT,
             )

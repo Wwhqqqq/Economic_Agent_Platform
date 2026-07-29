@@ -1,17 +1,17 @@
 """
-文件读取工具
-支持 CSV、Excel、PDF、TXT 等格式的智能解析
+文件读取工具 — 仅允许读取当前用户 uploads 目录下的文件
 """
 import os
 import json
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from app.core.connection_context import get_tool_user_id
 from app.tools.base import BaseTool, ToolResult
 
 
 class FileReaderInput(BaseModel):
-    file_path: str = Field(description="文件路径（相对于 data/ 目录或绝对路径）")
+    file_path: str = Field(description="文件路径（相对于当前用户 uploads 目录的文件名或相对路径）")
     file_type: Optional[str] = Field(
         default=None,
         description="文件类型: csv, excel, pdf, txt, json。不指定则自动推断"
@@ -22,27 +22,44 @@ class FileReaderInput(BaseModel):
 class FileReaderTool(BaseTool):
     name = "file_reader"
     description = (
-        "读取并解析本地文件系统中的文件。"
+        "读取并解析当前用户上传目录中的文件。"
         "支持 CSV、Excel（.xlsx）、PDF、TXT 和 JSON 格式。"
-        "输入：文件路径，可选的文件类型和最大行数。"
+        "输入：文件名或相对路径，可选的文件类型和最大行数。"
     )
     category = "file"
 
-    DATA_DIR = "./data"
+    UPLOAD_ROOT = os.path.join("data", "uploads")
+
+    def _resolve_path(self, file_path: str) -> tuple[bool, str, str]:
+        user_id = get_tool_user_id()
+        if not user_id:
+            return False, "", "未登录，无法读取用户文件"
+
+        user_root = os.path.abspath(os.path.join(self.UPLOAD_ROOT, str(user_id)))
+        os.makedirs(user_root, exist_ok=True)
+
+        if os.path.isabs(file_path):
+            candidate = os.path.abspath(file_path)
+        else:
+            candidate = os.path.abspath(os.path.join(user_root, file_path))
+
+        if not candidate.startswith(user_root + os.sep) and candidate != user_root:
+            return False, "", f"Access denied: path outside user upload directory"
+
+        if ".." in file_path.replace("\\", "/"):
+            return False, "", "Access denied: path traversal not allowed"
+
+        if not os.path.exists(candidate):
+            return False, "", f"File not found: {file_path}"
+
+        return True, candidate, ""
 
     async def _execute(
         self, file_path: str, file_type: str = None, max_rows: int = 50
     ) -> ToolResult:
-        full_path = file_path
-        if not os.path.isabs(file_path):
-            full_path = os.path.join(self.DATA_DIR, file_path)
-
-        if not os.path.exists(full_path):
-            return ToolResult(
-                success=False,
-                data=None,
-                error=f"File not found: {full_path}",
-            )
+        ok, full_path, err = self._resolve_path(file_path)
+        if not ok:
+            return ToolResult(success=False, data=None, error=err)
 
         ext = file_type or os.path.splitext(full_path)[1].lower().lstrip(".")
 

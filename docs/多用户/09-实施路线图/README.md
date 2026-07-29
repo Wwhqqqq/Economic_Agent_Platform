@@ -36,11 +36,11 @@
 
 ## 4. Phase 2 — 记忆与 RAG 隔离
 
-- [ ] knowledge_documents（visibility=private）
-- [ ] Chroma / Neo4j user_id filter
-- [ ] MemoryManager 全链路 user_id
-- [ ] file_reader 用户目录
-- [ ] skill connection 级激活
+- [x] knowledge_documents（visibility=private）
+- [x] Chroma / Neo4j user_id filter
+- [x] MemoryManager 全链路 user_id
+- [x] file_reader 用户目录
+- [x] skill connection 级激活
 
 **验收**：06 文档越权用例 1~4、7 通过。
 
@@ -110,4 +110,5 @@
 ## 10. 相关文档
 
 - [01 — 需求](../01-需求与现状分析/README.md)
+- [Phase 2 开发手册（记忆与 RAG 隔离）](./phase2/README.md)
 - [04 — 权限](../04-权限与租户隔离/README.md)

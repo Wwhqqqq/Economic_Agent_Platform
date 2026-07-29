@@ -173,7 +173,10 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if user:
+        before_type = user.user_type
         user = _normalize_membership(user)
+        if before_type != user.user_type:
+            await db.flush()
     return user
 
 

@@ -3,7 +3,6 @@ from app.core.config import config
 from app.db.chroma import get_chroma_client
 from app.db.neo4j import get_neo4j_client
 from app.llm.factory import LLMFactory
-from app.rag.service import get_hybrid_retriever
 
 
 def probe_chroma() -> dict:
@@ -23,11 +22,10 @@ def probe_neo4j() -> dict:
     if not client.available:
         return {"status": "down", "error": "Neo4j unavailable"}
     try:
-        stats = get_hybrid_retriever().stats()
         return {
             "status": "up",
-            "entities": stats.get("graph_entities", 0),
-            "documents": stats.get("graph_documents", 0),
+            "entities": client.count_entities(),
+            "documents": client.count_documents(),
         }
     except Exception as exc:
         return {"status": "down", "error": str(exc)}

@@ -9,6 +9,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.runnables import RunnableLambda, RunnableConfig
 
 from app.core.config import config as app_config
+from app.core.connection_context import get_active_skill_name
 from app.memory.short_term import ShortTermMemory
 from app.memory.long_term import LongTermMemory
 from app.memory.episodic import EpisodicMemory
@@ -30,7 +31,8 @@ class MemoryManager:
         self._hybrid = get_hybrid_retriever()
 
     def _resolve_context_strategy(self, overrides: dict | None = None) -> dict:
-        active_skill = skill_registry.get_active()
+        skill_name = get_active_skill_name()
+        active_skill = skill_registry.get(skill_name) if skill_name else None
         strategy = active_skill.get_context_strategy() if active_skill else {
             "max_history": 10,
             "include_knowledge": True,
@@ -61,6 +63,7 @@ class MemoryManager:
         system_prompt: str = None,
         *,
         user_id: int | None = None,
+        user_type: str = "regular",
         context_strategy: dict | None = None,
     ) -> dict:
         """
@@ -77,10 +80,13 @@ class MemoryManager:
             try:
                 docs = await asyncio.wait_for(
                     asyncio.to_thread(
-                        self._hybrid.retrieve,
-                        user_input,
-                        app_config.memory.long_term_top_k,
-                        "hybrid",
+                        lambda: self._hybrid.retrieve(
+                            user_input,
+                            app_config.memory.long_term_top_k,
+                            "hybrid",
+                            user_id=user_id,
+                            user_type=user_type,
+                        )
                     ),
                     timeout=MEMORY_LOAD_TIMEOUT,
                 )
@@ -108,7 +114,7 @@ class MemoryManager:
         if strategy.get("include_long_term", True):
             try:
                 long_term_context = await asyncio.wait_for(
-                    self.long_term.recall_formatted(user_input),
+                    self.long_term.recall_formatted(user_input, user_id=user_id),
                     timeout=MEMORY_LOAD_TIMEOUT,
                 )
                 if long_term_context:
@@ -121,7 +127,7 @@ class MemoryManager:
             if keywords and len(user_input.strip()) > 4:
                 try:
                     graph_context = await asyncio.wait_for(
-                        self.episodic.recall_graph_context(keywords[:5]),
+                        self.episodic.recall_graph_context(keywords[:5], user_id=user_id),
                         timeout=MEMORY_LOAD_TIMEOUT,
                     )
                     if graph_context:
@@ -199,6 +205,7 @@ class MemoryManager:
                 await self.long_term.remember(
                     content=combined[:1200],
                     session_id=session_id,
+                    user_id=user_id,
                     importance=importance,
                     metadata={"source": "conversation"},
                 )
@@ -207,6 +214,7 @@ class MemoryManager:
                     user_msg=user_input,
                     agent_msg=agent_output,
                     entities=entities,
+                    user_id=user_id,
                 )
             except Exception as exc:
                 print(f"[MemoryManager] Background persist failed: {exc}")
@@ -221,8 +229,8 @@ class MemoryManager:
         """清除会话相关的短期、长期与情景记忆。"""
         if not user_id:
             self.short_term.clear(session_id)
-        removed = await self.long_term.forget_session(session_id)
-        episodic_removed = await self.episodic.clear_session(session_id)
+        removed = await self.long_term.forget_session(session_id, user_id=user_id)
+        episodic_removed = await self.episodic.clear_session(session_id, user_id=user_id)
         return {
             "session_id": session_id,
             "long_term_removed": removed,

@@ -1,12 +1,11 @@
 """
 Agent 运行时共享模块
-
-统一 DeepSeek 配置、技能 Prompt 注入、工具筛选与 ReAct 执行循环。
 """
 from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 
 from langchain_core.language_models import BaseChatModel
@@ -14,28 +13,14 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from app.agent.base import AgentConfig, AgentEvent, AgentEventType, AgentResponse
 from app.core.config import config as app_config
+from app.core.connection_context import get_active_skill_name, set_connection_context, ConnectionContext
 from app.llm.factory import LLMFactory
 from app.memory.manager import memory_manager
 from app.skills.registry import skill_registry
 from app.tools.registry import tool_registry
 
-FIXED_LLM_PROVIDER = "deepseek"  # fallback default only
+FIXED_LLM_PROVIDER = "deepseek"
 CONTEXT_LOAD_TIMEOUT = 10.0
-
-
-def extract_token_usage(response: AIMessage) -> int:
-    """Extract token usage from LangChain AIMessage metadata."""
-    total = 0
-    meta = getattr(response, "response_metadata", None) or {}
-    usage = meta.get("token_usage") or meta.get("usage") or {}
-    if isinstance(usage, dict):
-        total += int(usage.get("total_tokens") or 0)
-        if not total:
-            total += int(usage.get("prompt_tokens") or 0) + int(usage.get("completion_tokens") or 0)
-    usage_meta = getattr(response, "usage_metadata", None)
-    if usage_meta:
-        total += int(getattr(usage_meta, "total_tokens", 0) or usage_meta.get("total_tokens", 0) if isinstance(usage_meta, dict) else 0)
-    return total
 
 DEFAULT_SYSTEM_PROMPT = """You are an intelligent AI assistant with access to various tools.
 
@@ -58,8 +43,21 @@ DEFAULT_SYSTEM_PROMPT = """You are an intelligent AI assistant with access to va
 """
 
 
+def extract_token_usage(response: AIMessage) -> int:
+    total = 0
+    meta = getattr(response, "response_metadata", None) or {}
+    usage = meta.get("token_usage") or meta.get("usage") or {}
+    if isinstance(usage, dict):
+        total += int(usage.get("total_tokens") or 0)
+        if not total:
+            total += int(usage.get("prompt_tokens") or 0) + int(usage.get("completion_tokens") or 0)
+    usage_meta = getattr(response, "usage_metadata", None)
+    if usage_meta:
+        total += int(getattr(usage_meta, "total_tokens", 0) or usage_meta.get("total_tokens", 0) if isinstance(usage_meta, dict) else 0)
+    return total
+
+
 def normalize_agent_config(config: Optional[AgentConfig]) -> AgentConfig:
-    """统一 Agent 运行配置，尊重客户端 provider/model。"""
     config = config or AgentConfig()
     if not config.provider:
         config.provider = app_config.agent.default_provider
@@ -68,10 +66,16 @@ def normalize_agent_config(config: Optional[AgentConfig]) -> AgentConfig:
     return config
 
 
+def _resolve_active_skill(config: AgentConfig):
+    skill_name = config.active_skill or get_active_skill_name()
+    if skill_name:
+        return skill_registry.get(skill_name)
+    return None
+
+
 def resolve_system_prompt(config: AgentConfig) -> str:
-    """合并技能 Prompt 与 Agent 默认/自定义 Prompt。"""
     base_prompt = (config.system_prompt or DEFAULT_SYSTEM_PROMPT).strip()
-    active_skill = skill_registry.get_active()
+    active_skill = _resolve_active_skill(config)
     if active_skill:
         skill_prompt = active_skill.get_system_prompt().strip()
         if skill_prompt:
@@ -80,8 +84,8 @@ def resolve_system_prompt(config: AgentConfig) -> str:
 
 
 def get_langchain_tools(config: AgentConfig | None = None):
-    """根据激活技能筛选可用工具。"""
-    active_skill = skill_registry.get_active()
+    config = normalize_agent_config(config)
+    active_skill = _resolve_active_skill(config)
     if active_skill:
         required = active_skill.get_required_tools()
         if required:
@@ -90,7 +94,6 @@ def get_langchain_tools(config: AgentConfig | None = None):
 
 
 def message_content(message: BaseMessage) -> str:
-    """提取消息文本内容。"""
     content = message.content
     if isinstance(content, str):
         return content
@@ -107,16 +110,23 @@ def message_content(message: BaseMessage) -> str:
     return str(content) if content else ""
 
 
+def _ensure_tool_context(config: AgentConfig) -> None:
+    ctx = ConnectionContext(
+        user_id=config.user_id or 0,
+        user_type=config.user_type,
+        session_id=config.session_id,
+        active_skill=config.active_skill or get_active_skill_name(),
+    )
+    set_connection_context(ctx)
+
+
 async def load_agent_context(
     config: AgentConfig,
     user_input: str,
     system_prompt: str,
 ) -> tuple[str, list[dict]]:
-    """加载记忆 + 知识库上下文并注入 System Prompt，返回 (context, citations)。"""
-    active_skill = skill_registry.get_active()
-    context_strategy = (
-        active_skill.get_context_strategy() if active_skill else None
-    )
+    active_skill = _resolve_active_skill(config)
+    context_strategy = active_skill.get_context_strategy() if active_skill else None
     try:
         bundle = await asyncio.wait_for(
             memory_manager.load_context_bundle(
@@ -124,6 +134,7 @@ async def load_agent_context(
                 user_input,
                 system_prompt,
                 user_id=config.user_id,
+                user_type=config.user_type,
                 context_strategy=context_strategy,
             ),
             timeout=CONTEXT_LOAD_TIMEOUT,
@@ -138,7 +149,7 @@ async def build_initial_messages(
     config: AgentConfig,
     user_input: str,
 ) -> tuple[list[BaseMessage], list[dict]]:
-    """构建带记忆上下文的初始消息列表，返回 (messages, citations)。"""
+    _ensure_tool_context(config)
     system_prompt = resolve_system_prompt(config)
     context, citations = await load_agent_context(config, user_input, system_prompt)
     return [
@@ -147,16 +158,7 @@ async def build_initial_messages(
     ], citations
 
 
-def create_llm(config: AgentConfig, temperature: float | None = None) -> BaseChatModel:
-    """创建 LLM 实例，使用配置中的 provider/model。"""
-    kwargs = {"temperature": config.temperature if temperature is None else temperature}
-    if config.model:
-        kwargs["model"] = config.model
-    return LLMFactory.create(provider=config.provider, **kwargs)
-
-
 async def execute_tool_call(tool_call: dict) -> tuple[ToolMessage, dict]:
-    """执行单个工具调用并返回 ToolMessage 与审计记录。"""
     tool_name = tool_call["name"]
     tool_args = tool_call.get("args") or {}
     tool_id = tool_call.get("id") or tool_name
@@ -185,9 +187,6 @@ async def invoke_llm_with_tools(
     tools,
     max_iterations: int,
 ) -> tuple[str, list[dict]]:
-    """
-    运行 ReAct 工具循环（非流式），直到模型给出最终文本或达到迭代上限。
-    """
     llm_with_tools = llm.bind_tools(tools)
     tool_calls_made: list[dict] = []
     final_output = ""
@@ -213,20 +212,225 @@ async def invoke_llm_with_tools(
 
 async def stream_text_as_reasoning(
     text: str,
-    chunk_size: int = 24,
+    chunk_size: int | None = None,
 ) -> AsyncIterator[AgentEvent]:
-    """将完整文本切成 REASONING 事件，兼容前端 token/accumulated 字段。"""
     if not text:
         return
 
+    size = chunk_size if chunk_size is not None else _fallback_chunk_size()
     accumulated = ""
-    for index in range(0, len(text), chunk_size):
-        token = text[index : index + chunk_size]
+    for index in range(0, len(text), size):
+        token = text[index : index + size]
         accumulated += token
         yield AgentEvent(
             type=AgentEventType.REASONING,
             data={"token": token, "accumulated": accumulated},
         )
+
+
+@dataclass
+class StreamRoundComplete:
+    """Marker emitted at end of one LLM round (with optional tools)."""
+    response: AIMessage
+    accumulated_text: str
+    is_tool_round: bool
+    tokens_used: int = 0
+
+
+@dataclass
+class TextStreamComplete:
+    """Marker emitted at end of a text-only LLM stream."""
+    text: str
+    tokens_used: int = 0
+
+
+def _fallback_chunk_size() -> int:
+    return app_config.agent.stream_fallback_chunk_size
+
+
+def _use_streaming(config: AgentConfig) -> bool:
+    return bool(config.streaming and app_config.agent.streaming_enabled)
+
+
+def _chunk_has_tool_signal(chunk: BaseMessage) -> bool:
+    tool_chunks = getattr(chunk, "tool_call_chunks", None)
+    if tool_chunks:
+        return True
+    tool_calls = getattr(chunk, "tool_calls", None)
+    return bool(tool_calls)
+
+
+def _to_ai_message(message: BaseMessage) -> AIMessage:
+    if isinstance(message, AIMessage):
+        return message
+    return AIMessage(
+        content=message_content(message),
+        tool_calls=list(getattr(message, "tool_calls", None) or []),
+        response_metadata=dict(getattr(message, "response_metadata", None) or {}),
+    )
+
+
+async def _simulate_reasoning_events(text: str) -> AsyncIterator[AgentEvent]:
+    async for event in stream_text_as_reasoning(text):
+        yield event
+
+
+async def _llm_round_events(
+    llm_with_tools,
+    messages: list[BaseMessage],
+    config: AgentConfig,
+) -> AsyncIterator[AgentEvent | StreamRoundComplete]:
+    """Stream one ReAct LLM round; yields REASONING deltas then StreamRoundComplete."""
+    if not _use_streaming(config):
+        response = _to_ai_message(await llm_with_tools.ainvoke(messages))
+        tokens = extract_token_usage(response)
+        if response.tool_calls:
+            yield StreamRoundComplete(
+                response=response,
+                accumulated_text="",
+                is_tool_round=True,
+                tokens_used=tokens,
+            )
+            return
+        text = message_content(response)
+        async for event in _simulate_reasoning_events(text):
+            yield event
+        yield StreamRoundComplete(
+            response=response,
+            accumulated_text=text,
+            is_tool_round=False,
+            tokens_used=tokens,
+        )
+        return
+
+    gathered: BaseMessage | None = None
+    accumulated = ""
+    saw_tool_signal = False
+    try:
+        async for chunk in llm_with_tools.astream(messages):
+            gathered = chunk if gathered is None else gathered + chunk
+            if _chunk_has_tool_signal(chunk):
+                saw_tool_signal = True
+                continue
+            delta = message_content(chunk)
+            if delta and not saw_tool_signal:
+                accumulated += delta
+                yield AgentEvent(
+                    type=AgentEventType.REASONING,
+                    data={"token": delta, "accumulated": accumulated},
+                )
+
+        response = _to_ai_message(gathered if gathered is not None else AIMessage(content=""))
+        tokens = extract_token_usage(response)
+        is_tool_round = saw_tool_signal or bool(response.tool_calls)
+
+        if is_tool_round:
+            yield StreamRoundComplete(
+                response=response,
+                accumulated_text="",
+                is_tool_round=True,
+                tokens_used=tokens,
+            )
+            return
+
+        final_text = message_content(response) or accumulated
+        if final_text and not accumulated:
+            async for event in _simulate_reasoning_events(final_text):
+                yield event
+        yield StreamRoundComplete(
+            response=response,
+            accumulated_text=final_text,
+            is_tool_round=False,
+            tokens_used=tokens,
+        )
+    except Exception as exc:
+        print(f"[Streaming] fallback to simulated: {exc}")
+        response = _to_ai_message(await llm_with_tools.ainvoke(messages))
+        tokens = extract_token_usage(response)
+        if response.tool_calls:
+            yield StreamRoundComplete(
+                response=response,
+                accumulated_text="",
+                is_tool_round=True,
+                tokens_used=tokens,
+            )
+            return
+        text = message_content(response)
+        async for event in _simulate_reasoning_events(text):
+            yield event
+        yield StreamRoundComplete(
+            response=response,
+            accumulated_text=text,
+            is_tool_round=False,
+            tokens_used=tokens,
+        )
+
+
+async def stream_llm_text_events(
+    llm: BaseChatModel,
+    messages: list[BaseMessage],
+    config: AgentConfig | None = None,
+) -> AsyncIterator[AgentEvent | TextStreamComplete]:
+    """Stream a text-only LLM call (no tools), e.g. debate judge summaries."""
+    config = normalize_agent_config(config or AgentConfig())
+
+    if not _use_streaming(config):
+        response = _to_ai_message(await llm.ainvoke(messages))
+        text = message_content(response)
+        async for event in _simulate_reasoning_events(text):
+            yield event
+        yield TextStreamComplete(text=text, tokens_used=extract_token_usage(response))
+        return
+
+    gathered: BaseMessage | None = None
+    accumulated = ""
+    try:
+        async for chunk in llm.astream(messages):
+            gathered = chunk if gathered is None else gathered + chunk
+            delta = message_content(chunk)
+            if delta:
+                accumulated += delta
+                yield AgentEvent(
+                    type=AgentEventType.REASONING,
+                    data={"token": delta, "accumulated": accumulated},
+                )
+        response = _to_ai_message(gathered if gathered is not None else AIMessage(content=""))
+        final_text = message_content(response) or accumulated
+        if final_text and not accumulated:
+            async for event in _simulate_reasoning_events(final_text):
+                yield event
+        yield TextStreamComplete(
+            text=final_text,
+            tokens_used=extract_token_usage(response),
+        )
+    except Exception as exc:
+        print(f"[Streaming] fallback to simulated: {exc}")
+        response = _to_ai_message(await llm.ainvoke(messages))
+        text = message_content(response)
+        async for event in _simulate_reasoning_events(text):
+            yield event
+        yield TextStreamComplete(text=text, tokens_used=extract_token_usage(response))
+
+
+async def _emit_tool_round_events(
+    response: AIMessage,
+    tool_calls_made: list[dict],
+) -> AsyncIterator[AgentEvent | ToolMessage]:
+    """Execute tool calls from an LLM response; yields WS events and ToolMessages."""
+    for tool_call in response.tool_calls:
+        tool_name = tool_call["name"]
+        tool_args = tool_call.get("args") or {}
+        yield AgentEvent(
+            type=AgentEventType.TOOL_CALL,
+            data={"tool": tool_name, "args": tool_args},
+        )
+        tool_message, record = await execute_tool_call(tool_call)
+        tool_calls_made.append(record)
+        yield AgentEvent(
+            type=AgentEventType.TOOL_RESULT,
+            data={"tool": tool_name, "result": record["result"]},
+        )
+        yield tool_message
 
 
 async def run_react_loop(
@@ -237,12 +441,8 @@ async def run_react_loop(
     thinking_message: str = "正在推理并决定是否调用工具...",
     emit_done: bool = True,
 ) -> AsyncIterator[AgentEvent]:
-    """
-    统一的 ReAct 执行循环（流式事件）。
-
-    事件序列：THINKING → (TOOL_CALL/TOOL_RESULT)* → REASONING* → FINAL → DONE
-    """
     config = normalize_agent_config(config)
+    _ensure_tool_context(config)
     messages, citations = await build_initial_messages(config, user_input)
     if citations:
         yield AgentEvent(
@@ -268,37 +468,33 @@ async def run_react_loop(
                 },
             )
 
-            response = await llm_with_tools.ainvoke(messages)
-            messages.append(response)
-            tokens_used += extract_token_usage(response)
+            round_complete: StreamRoundComplete | None = None
+            async for item in _llm_round_events(llm_with_tools, messages, config):
+                if isinstance(item, StreamRoundComplete):
+                    round_complete = item
+                else:
+                    yield item
 
-            if getattr(response, "tool_calls", None):
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call.get("args") or {}
-                    yield AgentEvent(
-                        type=AgentEventType.TOOL_CALL,
-                        data={"tool": tool_name, "args": tool_args},
-                    )
-                    tool_message, record = await execute_tool_call(tool_call)
-                    tool_calls_made.append(record)
-                    yield AgentEvent(
-                        type=AgentEventType.TOOL_RESULT,
-                        data={
-                            "tool": tool_name,
-                            "result": record["result"],
-                        },
-                    )
-                    messages.append(tool_message)
+            if round_complete is None:
+                final_output = "模型未返回有效响应，请重试。"
+                break
+
+            tokens_used += round_complete.tokens_used
+            messages.append(round_complete.response)
+
+            if round_complete.is_tool_round:
+                async for item in _emit_tool_round_events(round_complete.response, tool_calls_made):
+                    if isinstance(item, AgentEvent):
+                        yield item
+                    else:
+                        messages.append(item)
                 continue
 
-            final_output = message_content(response)
-            async for event in stream_text_as_reasoning(final_output):
-                yield event
+            final_output = round_complete.accumulated_text
             break
         else:
             final_output = "已达到最大工具调用次数，请简化任务后重试。"
-            async for event in stream_text_as_reasoning(final_output):
+            async for event in _simulate_reasoning_events(final_output):
                 yield event
 
         elapsed = (time.time() - start_time) * 1000
@@ -337,17 +533,23 @@ async def run_react_loop(
             yield AgentEvent(type=AgentEventType.DONE)
 
 
+def create_llm(config: AgentConfig, temperature: float | None = None) -> BaseChatModel:
+    kwargs = {"temperature": config.temperature if temperature is None else temperature}
+    if config.model:
+        kwargs["model"] = config.model
+    return LLMFactory.create(provider=config.provider, **kwargs)
+
+
 async def run_prompt_tool_loop(
     prompt: str,
     *,
     temperature: float = 0.4,
     tools,
     max_iterations: int = 5,
+    config: AgentConfig | None = None,
 ) -> AsyncIterator[AgentEvent]:
-    """
-    对单条 HumanMessage Prompt 运行工具循环（用于 Multi-Agent 角色调用）。
-    """
-    config = normalize_agent_config(AgentConfig(temperature=temperature))
+    config = normalize_agent_config(config or AgentConfig(temperature=temperature))
+    config.temperature = temperature
     llm = create_llm(config, temperature=temperature)
     llm_with_tools = llm.bind_tools(tools)
     messages: list[BaseMessage] = [HumanMessage(content=prompt)]
@@ -361,33 +563,32 @@ async def run_prompt_tool_loop(
             data={"iteration": iteration, "message": "角色正在推理..."},
         )
 
-        response = await llm_with_tools.ainvoke(messages)
-        messages.append(response)
+        round_complete: StreamRoundComplete | None = None
+        async for item in _llm_round_events(llm_with_tools, messages, config):
+            if isinstance(item, StreamRoundComplete):
+                round_complete = item
+            else:
+                yield item
 
-        if getattr(response, "tool_calls", None):
-            for tool_call in response.tool_calls:
-                tool_name = tool_call["name"]
-                tool_args = tool_call.get("args") or {}
-                yield AgentEvent(
-                    type=AgentEventType.TOOL_CALL,
-                    data={"tool": tool_name, "args": tool_args},
-                )
-                tool_message, record = await execute_tool_call(tool_call)
-                tool_calls_made.append(record)
-                yield AgentEvent(
-                    type=AgentEventType.TOOL_RESULT,
-                    data={"tool": tool_name, "result": record["result"]},
-                )
-                messages.append(tool_message)
+        if round_complete is None:
+            final_output = "模型未返回有效响应。"
+            break
+
+        messages.append(round_complete.response)
+
+        if round_complete.is_tool_round:
+            async for item in _emit_tool_round_events(round_complete.response, tool_calls_made):
+                if isinstance(item, AgentEvent):
+                    yield item
+                else:
+                    messages.append(item)
             continue
 
-        final_output = message_content(response)
-        async for event in stream_text_as_reasoning(final_output):
-            yield event
+        final_output = round_complete.accumulated_text
         break
     else:
         final_output = final_output or "已达到最大工具调用次数。"
-        async for event in stream_text_as_reasoning(final_output):
+        async for event in _simulate_reasoning_events(final_output):
             yield event
 
     yield AgentEvent(
@@ -403,7 +604,6 @@ async def collect_prompt_tool_response(
     tools,
     max_iterations: int = 5,
 ) -> tuple[str, list[dict]]:
-    """收集 prompt 工具循环的最终输出。"""
     output = ""
     tool_calls: list[dict] = []
     async for event in run_prompt_tool_loop(
@@ -424,7 +624,6 @@ async def collect_react_response(
     *,
     persist_memory: bool = False,
 ) -> AgentResponse:
-    """通过事件循环收集 ReAct 完整响应（供 invoke / 子 Agent 复用）。"""
     start_time = time.time()
     events: list[AgentEvent] = []
     output = ""

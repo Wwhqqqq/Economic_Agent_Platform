@@ -13,11 +13,11 @@ from app.agent.orchestrator import orchestrator
 from app.core.catalog import normalize_execution_mode
 from app.core.config import config as app_config
 from app.core.database import get_db, session_scope
+from app.core.connection_context import ConnectionContext, set_connection_context
 from app.memory.manager import memory_manager
 from app.schemas.user_context import UserContext
 from app.services.auth import AUTH_ENABLED, get_current_user, verify_token
 from app.services.chat_session_service import chat_session_service
-from app.skills.registry import skill_registry
 from langchain_core.messages import AIMessage, HumanMessage
 
 router = APIRouter()
@@ -88,16 +88,22 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 })
                 continue
 
-            skill_name = data.get("skill")
-            if skill_name:
-                skill_registry.activate(skill_name)
-            else:
-                skill_registry.deactivate()
+            skill_name = data.get("skill") or None
+            set_connection_context(
+                ConnectionContext(
+                    user_id=user.user_id,
+                    user_type=user.user_type,
+                    session_id=session_id,
+                    active_skill=skill_name,
+                )
+            )
 
             provider = data.get("provider") or app_config.agent.default_provider
             agent_config = AgentConfig(
                 session_id=session_id,
                 user_id=user.user_id if user.user_id else None,
+                user_type=user.user_type,
+                active_skill=skill_name,
                 provider=provider,
                 model=data.get("model"),
                 temperature=data.get("temperature", 0.7),
@@ -161,6 +167,7 @@ async def create_session(
             "created_at": None,
             "note": "anonymous_mode",
         }
+    # TODO(phase3): await check_quota("session", uid, user.user_type)
     session = await chat_session_service.create_session(db, uid, req.title)
     return {
         "session_id": session.id,

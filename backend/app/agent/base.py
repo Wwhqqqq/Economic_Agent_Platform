@@ -53,6 +53,8 @@ class AgentConfig:
     max_iterations: int = 10
     session_id: str = "default"
     user_id: int | None = None
+    user_type: str = "regular"
+    active_skill: str | None = None
     streaming: bool = True
     system_prompt: str = None
 

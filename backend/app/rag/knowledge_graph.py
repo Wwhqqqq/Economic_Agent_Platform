@@ -20,42 +20,54 @@ class KnowledgeGraphRetriever:
         return self._neo4j.available
 
     def add_entity(
-        self, name: str, entity_type: str, properties: dict = None
+        self, name: str, entity_type: str, user_id: int | None = None, properties: dict = None
     ) -> None:
-        self._neo4j.upsert_entity(name, entity_type, properties)
+        self._neo4j.upsert_entity(name, entity_type, user_id=user_id, properties=properties)
 
     def add_relation(
-        self, source: str, target: str, relation: str, properties: dict = None
+        self,
+        source: str,
+        target: str,
+        relation: str,
+        user_id: int | None = None,
+        properties: dict = None,
     ) -> None:
-        self._neo4j.create_relation(source, target, relation, properties)
+        self._neo4j.create_relation(source, target, relation, user_id=user_id, properties=properties)
 
     def add_document(
         self,
         doc_id: str,
         title: str,
         content: str,
+        user_id: int | None = None,
+        visibility: str = "private",
         metadata: dict = None,
         entities: list[dict] | None = None,
     ) -> None:
-        """写入 Document 节点并关联实体。"""
         self._neo4j.upsert_document(
             doc_id=doc_id,
             title=title,
             snippet=content,
+            user_id=user_id,
+            visibility=visibility,
             properties=metadata or {},
         )
         entity_list = entities or extract_entities(content)
         for entity in entity_list:
             name = entity["name"]
-            self._neo4j.upsert_entity(name, entity.get("type", "Concept"))
-            self._neo4j.link_document_entity(doc_id, name)
+            self._neo4j.upsert_entity(name, entity.get("type", "Concept"), user_id=user_id)
+            self._neo4j.link_document_entity(doc_id, name, user_id=user_id)
 
     def retrieve(
         self,
         query: str,
         top_k: int = 5,
         depth: int = 1,
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
     ) -> list[Document]:
+        _ = user_type  # Phase 3: member visibility branch
         documents: list[Document] = []
         keywords = [query] + [e["name"] for e in extract_entities(query, limit=5)]
 
@@ -66,7 +78,7 @@ class KnowledgeGraphRetriever:
             if not keyword.strip():
                 continue
 
-            for doc in self._neo4j.search_documents(keyword, limit=top_k):
+            for doc in self._neo4j.search_documents(keyword, user_id=user_id, limit=top_k):
                 key = doc.get("doc_id", doc.get("title", ""))
                 if key in seen_keys:
                     continue
@@ -88,14 +100,14 @@ class KnowledgeGraphRetriever:
                 )
                 rank += 1
 
-            entities = self._neo4j.search_entities(keyword)
+            entities = self._neo4j.search_entities(keyword, user_id=user_id)
             for entity in entities[:top_k]:
                 entity_name = entity.get("e.name", "")
                 if not entity_name or entity_name in seen_keys:
                     continue
                 seen_keys.add(entity_name)
                 entity_type = entity.get("e.type", "")
-                relations = self._neo4j.get_relations(entity_name, depth)
+                relations = self._neo4j.get_relations(entity_name, depth, user_id=user_id)
                 context = f"Entity: {entity_name} (Type: {entity_type})\n"
                 if relations:
                     context += "Relations:\n"
@@ -120,8 +132,8 @@ class KnowledgeGraphRetriever:
 
         return documents[:top_k]
 
-    def retrieve_entity_context(self, entity_names: list[str]) -> str:
-        results = self._neo4j.graph_retrieve(entity_names)
+    def retrieve_entity_context(self, entity_names: list[str], user_id: int | None = None) -> str:
+        results = self._neo4j.graph_retrieve(entity_names, user_id=user_id)
         if not results:
             return ""
 
@@ -138,14 +150,14 @@ class KnowledgeGraphRetriever:
                 )
         return "\n".join(lines)
 
-    def count_entities(self) -> int:
-        return self._neo4j.count_entities()
+    def count_entities(self, user_id: int | None = None) -> int:
+        return self._neo4j.count_entities(user_id)
 
-    def count_documents(self) -> int:
-        return self._neo4j.count_documents()
+    def count_documents(self, user_id: int | None = None, visibility: str = "private") -> int:
+        return self._neo4j.count_documents(user_id, visibility=visibility)
 
-    def delete_document(self, doc_id: str) -> None:
-        self._neo4j.delete_document(doc_id)
+    def delete_document(self, doc_id: str, user_id: int | None = None) -> None:
+        self._neo4j.delete_document(doc_id, user_id=user_id)
 
     def as_retriever(self, top_k: int = 5, depth: int = 1):
         def _retrieve(query: str):

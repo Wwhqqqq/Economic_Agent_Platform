@@ -67,6 +67,8 @@ class AgentConfig:
     timeout_seconds: int = 120
     debate_max_rounds: int = 3
     default_provider: Literal["openai", "anthropic", "custom", "deepseek"] = "deepseek"
+    streaming_enabled: bool = True
+    stream_fallback_chunk_size: int = 24
 
 
 @dataclass
@@ -148,6 +150,8 @@ class AppConfig:
                 timeout_seconds=int(os.getenv("AGENT_TIMEOUT_SECONDS", "120")),
                 debate_max_rounds=int(os.getenv("DEBATE_MAX_ROUNDS", "3")),
                 default_provider=os.getenv("DEFAULT_LLM_PROVIDER", "deepseek"),  # type: ignore[arg-type]
+                streaming_enabled=os.getenv("AGENT_STREAMING_ENABLED", "true").lower() == "true",
+                stream_fallback_chunk_size=int(os.getenv("AGENT_STREAM_FALLBACK_CHUNK_SIZE", "24")),
             ),
         )
 

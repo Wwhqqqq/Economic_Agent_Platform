@@ -24,6 +24,7 @@ from app.core.catalog import (
     AGENT_PROFILES,
     EXECUTION_MODES,
 )
+from app.core.connection_context import get_active_skill_name
 from app.skills.registry import skill_registry
 
 
@@ -94,7 +95,8 @@ class AgentOrchestrator:
         selected = self._select_mode(user_input, mode)
 
         mode_meta = EXECUTION_MODES.get(selected, {})
-        active_skill = skill_registry.get_active()
+        skill_name = config.active_skill or get_active_skill_name()
+        active_skill = skill_registry.get(skill_name) if skill_name else None
         yield AgentEvent(
             type=AgentEventType.START,
             data={

@@ -146,6 +146,7 @@
             </div>
 
             <div class="message-text" v-html="renderMarkdown(msg.content)"></div>
+            <span v-if="msg.isStreaming && msg.content" class="stream-cursor" aria-hidden="true">▍</span>
 
             <div v-if="msg.tool_calls && msg.tool_calls.length > 0" class="tool-calls">
               <div v-for="(tc, i) in msg.tool_calls" :key="i" class="tool-call-item">
@@ -256,6 +257,11 @@ function scrollToBottom() {
 }
 
 watch(() => chatStore.messages.length, scrollToBottom)
+
+watch(
+  () => chatStore.messages.filter(m => m.isStreaming).map(m => m.content).join('\n'),
+  scrollToBottom,
+)
 
 onMounted(async () => {
   await platformStore.load()
@@ -550,6 +556,17 @@ function quickAction(type: string) {
 .message.system .message-content { background: #FEF2F2; border-color: #FECACA; }
 .message-role { font-size: 12px; color: var(--ui-text-secondary); margin-bottom: 6px; font-weight: 600; }
 .message-text { font-size: 14px; line-height: 1.7; color: var(--ui-text-primary); word-break: break-word; }
+.stream-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--color-primary);
+  animation: cursor-blink 1s step-end infinite;
+  font-weight: 600;
+}
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
 .message-text :deep(pre) { background: var(--ui-bg-muted); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
 .message-text :deep(code) { font-size: 13px; background: var(--ui-bg-muted); padding: 2px 6px; border-radius: 4px; }
 .message-text :deep(pre code) { background: none; padding: 0; }

@@ -43,7 +43,7 @@
 | A-1 | `core/config.py` | `agent.timeout_seconds=120` 已读取 | **全项目无引用**，Agent 执行无超时中断 |
 | A-2 | `agent/base.py` | `AgentResponse.tokens_used` 字段存在 | **从未赋值** |
 | A-3 | `agent/runtime.py` | `invoke_llm_with_tools()` 已定义 | **无任何调用方**（死代码） |
-| A-4 | `agent/runtime.py` | 最终答案通过 `stream_text_as_reasoning()` 切块推送 | 非 LLM 真 token 流（工具轮次后一次性拿到全文再模拟流式） |
+| A-4 | `agent/runtime.py` | ~~最终答案通过 `stream_text_as_reasoning()` 切块推送~~ | ✅ 已实现 LLM `astream` 真 token 流 + 降级假流式 |
 | A-5 | `agent/plan_execute.py` | Evaluator 仅支持整轮 `needs_replan`，最多 1 次 | **无单步失败重试**；某步工具失败不会单独 retry |
 | A-6 | `agent/plan_execute.py` | 规划 / 评估 prompt 为英文 | 与中文 UI 混用（非 bug，可统一语言） |
 | A-7 | `requirements.txt` | 含 `langgraph`、`langgraph-checkpoint` | **`backend/app` 内零 import**，纯 unused 依赖 |
@@ -55,7 +55,7 @@
 | ID | 文件 | 现状 | 待修理 |
 |----|------|------|--------|
 | M-1 | `multi_agent/debate.py` | `DebateOrchestrator` 三个方法 `raise NotImplementedError` | 类**未被** `AccountingDebateTeam` 继承或使用 |
-| M-2 | `debate_team.py` | 流式路径 yield 整段 `content` 或切块 REASONING | 分析师/质疑者**非 LLM token 级**流式 |
+| M-2 | `debate_team.py` | ~~流式路径 yield 整段 content 或切块 REASONING~~ | ✅ 法官/终审与角色输出已接 `stream_llm_text_events` / `_llm_round_events` |
 | M-3 | `debate_team.py` | `_parse_verdict_sections()` 从 markdown 抽 `key_findings` 等 | 依赖标题格式，解析不稳定时字段为空 |
 | M-4 | `debate.py` | `DebateResult.key_findings / risks_identified / consensus_points` | 仅终审解析写入，**round 级别无结构化输出** |
 

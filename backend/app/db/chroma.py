@@ -125,10 +125,21 @@ class ChromaClient:
         collection_name: str,
         limit: int = 100,
         offset: int = 0,
+        where: Optional[dict] = None,
     ) -> dict:
         """获取集合中的文档列表"""
         collection = self.get_or_create_collection(collection_name)
-        return collection.get(limit=limit, offset=offset, include=["documents", "metadatas"])
+        kwargs: dict = {"limit": limit, "offset": offset, "include": ["documents", "metadatas"]}
+        if where:
+            kwargs["where"] = where
+        return collection.get(**kwargs)
+
+    def count_where(self, collection_name: str, where: Optional[dict] = None) -> int:
+        """Count documents, optionally filtered by metadata where clause."""
+        if not where:
+            return self.count(collection_name)
+        raw = self.get_all(collection_name, limit=10000, offset=0, where=where)
+        return len(raw.get("ids") or [])
 
     def list_collections(self) -> list[str]:
         """列出所有集合"""

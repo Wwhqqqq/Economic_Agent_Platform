@@ -1,36 +1,20 @@
 """
 向量存储检索器
 基于 ChromaDB 的语义相似度检索
-
-支持：
-- 文档分块与向量化
-- 语义相似度检索
-- 元数据过滤
-- 作为 LangChain Retriever 使用
 """
 from typing import Optional
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 
 from app.db.chroma import get_chroma_client
+from app.rag.tenant_filter import build_retrieval_filter, knowledge_metadata
 
 
 KNOWLEDGE_COLLECTION = "knowledge_base"
 
 
 class VectorStoreRetriever:
-    """
-    向量存储检索器
-
-    LCEL 集成示例:
-        retriever = VectorStoreRetriever()
-        chain = (
-            {"query": RunnablePassthrough()}
-            | RunnableLambda(retriever.retrieve)
-            | prompt
-            | llm
-        )
-    """
+    """向量存储检索器"""
 
     def __init__(self):
         self._chroma = get_chroma_client()
@@ -40,13 +24,23 @@ class VectorStoreRetriever:
         content: str,
         doc_id: str,
         metadata: dict = None,
+        *,
+        user_id: int | None = None,
+        visibility: str = "private",
     ) -> None:
-        """添加单个文档到知识库"""
+        meta = metadata or {}
+        if user_id is not None:
+            meta = knowledge_metadata(
+                doc_id=doc_id,
+                user_id=user_id,
+                visibility=visibility,  # type: ignore[arg-type]
+                **{k: v for k, v in meta.items() if k not in ("doc_id", "user_id", "visibility")},
+            )
         self._chroma.add_documents(
             collection_name=KNOWLEDGE_COLLECTION,
             ids=[doc_id],
             documents=[content],
-            metadatas=[metadata or {}],
+            metadatas=[meta],
         )
 
     def add_documents(
@@ -55,7 +49,6 @@ class VectorStoreRetriever:
         ids: list[str],
         metadatas: list[dict] = None,
     ) -> None:
-        """批量添加文档"""
         if not contents:
             return
         base_meta = [{} for _ in contents]
@@ -75,23 +68,19 @@ class VectorStoreRetriever:
         query: str,
         top_k: int = 5,
         metadata_filter: dict = None,
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
     ) -> list[Document]:
-        """
-        向量检索
+        where = metadata_filter
+        if user_id is not None and where is None:
+            where = build_retrieval_filter(user_id, user_type)
 
-        Args:
-            query: 查询文本
-            top_k: 返回文档数
-            metadata_filter: 元数据过滤条件
-
-        Returns:
-            LangChain Document 列表
-        """
         results = self._chroma.query(
             collection_name=KNOWLEDGE_COLLECTION,
             query_texts=[query],
             n_results=top_k,
-            where=metadata_filter,
+            where=where,
         )
 
         documents = []
@@ -115,11 +104,8 @@ class VectorStoreRetriever:
 
         return documents
 
-    def retrieve_with_scores(
-        self, query: str, top_k: int = 5
-    ) -> list[dict]:
-        """检索并返回格式化结果（带分数）"""
-        docs = self.retrieve(query, top_k)
+    def retrieve_with_scores(self, query: str, top_k: int = 5, **kwargs) -> list[dict]:
+        docs = self.retrieve(query, top_k, **kwargs)
         return [
             {
                 "content": doc.page_content,
@@ -130,19 +116,29 @@ class VectorStoreRetriever:
         ]
 
     def as_retriever(self, top_k: int = 5):
-        """转为 LangChain Retriever（兼容 LCEL）"""
         def _retrieve(query: str):
             return self.retrieve(query, top_k)
         return RunnableLambda(_retrieve)
 
-    def count(self) -> int:
-        return self._chroma.count(KNOWLEDGE_COLLECTION)
+    def count(self, user_id: int | None = None, user_type: str = "regular") -> int:
+        if user_id is None:
+            return self._chroma.count(KNOWLEDGE_COLLECTION)
+        where = build_retrieval_filter(user_id, user_type)
+        return self._chroma.count_where(KNOWLEDGE_COLLECTION, where)
 
     def delete(self, doc_id: str) -> None:
         self._chroma.delete(KNOWLEDGE_COLLECTION, [doc_id])
 
-    def list_documents(self, limit: int = 100, offset: int = 0) -> list[dict]:
-        raw = self._chroma.get_all(KNOWLEDGE_COLLECTION, limit=limit, offset=offset)
+    def list_documents(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        *,
+        user_id: int | None = None,
+        user_type: str = "regular",
+    ) -> list[dict]:
+        where = build_retrieval_filter(user_id, user_type) if user_id is not None else None
+        raw = self._chroma.get_all(KNOWLEDGE_COLLECTION, limit=limit, offset=offset, where=where)
         docs = []
         ids = raw.get("ids") or []
         documents = raw.get("documents") or []
@@ -154,5 +150,6 @@ class VectorStoreRetriever:
                 "doc_id": doc_id,
                 "preview": (content or "")[:200],
                 "metadata": meta,
+                "visibility": meta.get("visibility", "private"),
             })
         return docs
