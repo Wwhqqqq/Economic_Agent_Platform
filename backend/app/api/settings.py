@@ -6,7 +6,7 @@ from app.llm.factory import LLMFactory
 from app.models.settings import LLMProviderUpdate
 from app.core.settings_store import save_provider, save_default_provider
 from app.schemas.user_context import UserContext
-from app.services.auth import require_admin
+from app.services.auth import AUTH_ENABLED, get_current_user
 from app.services.audit_log import log_action
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -35,8 +35,15 @@ async def get_llm_config():
     }
 
 
+async def require_llm_editor(user: UserContext = Depends(get_current_user)) -> UserContext:
+    if AUTH_ENABLED and not user.is_member:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="升级会员后可配置个人模型接入")
+    return user
+
+
 @router.put("/llm")
-async def update_llm_config(req: LLMProviderUpdate, user: UserContext = Depends(require_admin)):
+async def update_llm_config(req: LLMProviderUpdate, user: UserContext = Depends(require_llm_editor)):
     LLMFactory.update_provider(
         name=req.provider,
         api_key=req.api_key,
@@ -57,7 +64,7 @@ async def update_llm_config(req: LLMProviderUpdate, user: UserContext = Depends(
 
 
 @router.put("/llm/default")
-async def set_default_provider(req: DefaultProviderRequest, user: UserContext = Depends(require_admin)):
+async def set_default_provider(req: DefaultProviderRequest, user: UserContext = Depends(require_llm_editor)):
     save_default_provider(req.provider)
     log_action("settings.llm.default", user.username, {"provider": req.provider})
     return {"status": "updated", "default_provider": req.provider}

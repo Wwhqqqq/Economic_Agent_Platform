@@ -5,8 +5,11 @@ import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
 import router from './router'
+import { initTheme } from './utils/theme'
 import './styles/theme.css'
 import './styles/global.css'
+
+initTheme()
 
 const app = createApp(App)
 
