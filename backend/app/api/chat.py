@@ -14,7 +14,7 @@ from app.core.catalog import normalize_execution_mode
 from app.core.config import config as app_config
 from app.core.database import get_db, session_scope
 from app.core.connection_context import ConnectionContext, set_connection_context
-from app.core.expert_catalog import resolve_expert_context
+from app.core.runtime_policy import MessageContext, apply_to_session, resolve
 from app.core.session_context import (
     clear_session_expert,
     clear_session_skill,
@@ -91,7 +91,13 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 continue
 
             user_input = data.get("input", "")
-            if not user_input.strip() and not data.get("clear_skill") and not data.get("clear_expert"):
+            attachments = data.get("attachments") or []
+            if (
+                not user_input.strip()
+                and not attachments
+                and not data.get("clear_skill")
+                and not data.get("clear_expert")
+            ):
                 await websocket.send_json({
                     "type": "error",
                     "data": {"message": "Empty input"},
@@ -100,25 +106,30 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
 
             session_ctx = get_session_context(session_id)
 
-            # Expert summon / clear
             if data.get("clear_expert"):
                 clear_session_expert(session_id)
-                session_ctx.active_expert_id = None
-            expert_id = data.get("expert_id") or session_ctx.active_expert_id
             if data.get("expert_id"):
                 set_session_expert(session_id, data.get("expert_id"))
-                expert_id = data.get("expert_id")
-
-            # Skill clear
             if data.get("clear_skill"):
                 clear_session_skill(session_id)
 
-            # Parse slash command from message (frontend may pre-parse; backend validates)
+            clear_only = (
+                not user_input.strip()
+                and not attachments
+                and (data.get("clear_skill") or data.get("clear_expert"))
+            )
+            if clear_only:
+                from app.core.session_context import session_context_to_public
+                await websocket.send_json({
+                    "type": "context_updated",
+                    "data": session_context_to_public(session_id),
+                })
+                continue
+
             parsed_skill, parsed_message = parse_slash_command(user_input)
             user_message = parsed_message if parsed_skill else user_input
-
-            skill_name = data.get("skill")
-            skill_invocation = data.get("skill_invocation")
+            if not user_message.strip() and attachments:
+                user_message = "请分析附件图片。"
 
             if parsed_skill:
                 if not skill_registry.get(parsed_skill):
@@ -127,43 +138,38 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                         "data": {"message": f"未找到技能 `{parsed_skill}`"},
                     })
                     continue
-                skill_name = parsed_skill
-                skill_invocation = "slash"
                 user_input = user_message
-                if not user_input.strip():
+                if not user_input.strip() and not attachments:
                     await websocket.send_json({
                         "type": "error",
                         "data": {"message": "请在 `/技能名` 后补充任务描述"},
                     })
                     continue
 
-            expert_ctx = resolve_expert_context(
-                expert_id,
-                skill_override=skill_name,
-                mode_override=data.get("mode"),
+            user_input = user_message
+
+            msg_ctx = MessageContext(
+                parsed_slash_skill=parsed_skill,
+                skill=data.get("skill"),
+                mode=data.get("mode"),
+                expert_id=data.get("expert_id"),
+                skill_invocation=data.get("skill_invocation"),
+                clear_skill=bool(data.get("clear_skill")),
+                clear_expert=bool(data.get("clear_expert")),
+                user_input=user_input,
             )
 
-            if skill_name is None and expert_ctx.get("skill"):
-                skill_name = expert_ctx["skill"]
-                if not skill_invocation and expert_id:
-                    skill_invocation = "expert"
+            resolved = resolve(session_ctx, msg_ctx)
+            apply_to_session(session_ctx, resolved)
 
-            if skill_name:
-                set_session_skill(session_id, skill_name, skill_invocation)
-            elif session_ctx.active_skill and not data.get("clear_skill"):
-                skill_name = session_ctx.active_skill
-                skill_invocation = skill_invocation or session_ctx.skill_invocation
-
-            mode = normalize_execution_mode(expert_ctx.get("mode") or data.get("mode") or "adaptive")
-
-            system_prompt = expert_ctx.get("system_prompt")
+            mode = normalize_execution_mode(resolved.mode)
 
             set_connection_context(
                 ConnectionContext(
                     user_id=user.user_id,
                     user_type=user.user_type,
                     session_id=session_id,
-                    active_skill=skill_name,
+                    active_skill=resolved.skill,
                 )
             )
 
@@ -172,14 +178,19 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 session_id=session_id,
                 user_id=user.user_id if user.user_id else None,
                 user_type=user.user_type,
-                active_skill=skill_name,
-                expert_id=expert_id,
-                skill_invocation=skill_invocation,
+                active_skill=resolved.skill,
+                expert_id=resolved.expert_id,
+                skill_invocation=resolved.skill_invocation,
+                context_strategy=resolved.context_strategy,
                 provider=provider,
                 model=data.get("model"),
                 temperature=data.get("temperature", 0.7),
                 streaming=True,
-                system_prompt=system_prompt,
+                system_prompt=resolved.system_prompt,
+                engine=resolved.engine,
+                team_protocol=resolved.team_protocol,
+                team_class=resolved.team_class,
+                attachments=attachments if isinstance(attachments, list) else [],
             )
 
             timeout = app_config.agent.timeout_seconds
@@ -237,7 +248,6 @@ async def create_session(
             "created_at": None,
             "note": "anonymous_mode",
         }
-    # TODO(phase3): await check_quota("session", uid, user.user_type)
     session = await chat_session_service.create_session(db, uid, req.title)
     return {
         "session_id": session.id,

@@ -1,0 +1,4 @@
+max_history: 16
+include_knowledge: true
+include_entities: true
+include_long_term: true

@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from app.agent.base import AgentConfig, AgentEvent, AgentEventType, AgentResponse
 from app.core.config import config as app_config
-from app.core.connection_context import get_active_skill_name, set_connection_context, ConnectionContext
+from app.core.connection_context import set_connection_context, ConnectionContext
 from app.llm.factory import LLMFactory
 from app.memory.manager import memory_manager
 from app.skills.registry import skill_registry
@@ -67,9 +67,8 @@ def normalize_agent_config(config: Optional[AgentConfig]) -> AgentConfig:
 
 
 def _resolve_active_skill(config: AgentConfig):
-    skill_name = config.active_skill or get_active_skill_name()
-    if skill_name:
-        return skill_registry.get(skill_name)
+    if config.active_skill:
+        return skill_registry.get(config.active_skill)
     return None
 
 
@@ -114,7 +113,7 @@ def _ensure_tool_context(config: AgentConfig) -> None:
         user_id=config.user_id or 0,
         user_type=config.user_type,
         session_id=config.session_id,
-        active_skill=config.active_skill or get_active_skill_name(),
+        active_skill=config.active_skill,
     )
     set_connection_context(ctx)
 
@@ -125,7 +124,9 @@ async def load_agent_context(
     system_prompt: str,
 ) -> tuple[str, list[dict]]:
     active_skill = _resolve_active_skill(config)
-    context_strategy = active_skill.get_context_strategy() if active_skill else None
+    context_strategy = config.context_strategy
+    if context_strategy is None and active_skill:
+        context_strategy = active_skill.get_context_strategy()
     try:
         bundle = await asyncio.wait_for(
             memory_manager.load_context_bundle(
@@ -151,6 +152,25 @@ async def build_initial_messages(
     _ensure_tool_context(config)
     system_prompt = resolve_system_prompt(config)
     context, citations = await load_agent_context(config, user_input, system_prompt)
+    attachments = config.attachments or []
+    if attachments:
+        from app.llm.providers import provider_supports_vision, pick_vision_provider
+        from app.llm.vision import attachments_fallback_context, build_multimodal_human_message
+
+        vision_provider = pick_vision_provider(config.provider)
+        use_vision = bool(
+            vision_provider
+            and provider_supports_vision(vision_provider, config.model)
+        )
+        if use_vision:
+            human = build_multimodal_human_message(user_input, attachments)
+        else:
+            fallback = attachments_fallback_context(attachments)
+            combined = user_input.strip() or "请分析附件图片。"
+            if fallback:
+                combined = f"{combined}\n\n{fallback}"
+            human = HumanMessage(content=combined)
+        return [SystemMessage(content=context), human], citations
     return [
         SystemMessage(content=context),
         HumanMessage(content=user_input),
@@ -536,6 +556,15 @@ def create_llm(config: AgentConfig, temperature: float | None = None) -> BaseCha
     kwargs = {"temperature": config.temperature if temperature is None else temperature}
     if config.model:
         kwargs["model"] = config.model
+    if config.attachments:
+        from app.llm.providers import get_provider_vision_meta, pick_vision_provider
+
+        vision_provider = pick_vision_provider(config.provider)
+        if vision_provider:
+            meta = get_provider_vision_meta(vision_provider)
+            if meta.vision_models and not kwargs.get("model"):
+                kwargs["model"] = meta.vision_models[0]
+            return LLMFactory.create(provider=vision_provider, **kwargs)
     return LLMFactory.create(provider=config.provider, **kwargs)
 
 

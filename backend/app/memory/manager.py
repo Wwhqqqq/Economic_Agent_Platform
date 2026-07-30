@@ -31,17 +31,24 @@ class MemoryManager:
         self._hybrid = get_hybrid_retriever()
 
     def _resolve_context_strategy(self, overrides: dict | None = None) -> dict:
+        if overrides:
+            return {
+                "max_history": 10,
+                "include_knowledge": True,
+                "include_entities": True,
+                "include_long_term": True,
+                **overrides,
+            }
         skill_name = get_active_skill_name()
         active_skill = skill_registry.get(skill_name) if skill_name else None
-        strategy = active_skill.get_context_strategy() if active_skill else {
+        if active_skill:
+            return active_skill.get_context_strategy()
+        return {
             "max_history": 10,
             "include_knowledge": True,
             "include_entities": True,
             "include_long_term": True,
         }
-        if overrides:
-            strategy = {**strategy, **overrides}
-        return strategy
 
     async def load_context(
         self,
@@ -78,6 +85,8 @@ class MemoryManager:
 
         if strategy.get("include_knowledge", True) and len(user_input.strip()) > 2:
             try:
+                rerank = strategy.get("rerank", True)
+                content_types = strategy.get("content_types")
                 docs = await asyncio.wait_for(
                     asyncio.to_thread(
                         lambda: self._hybrid.retrieve(
@@ -86,27 +95,47 @@ class MemoryManager:
                             "hybrid",
                             user_id=user_id,
                             user_type=user_type,
+                            rerank=rerank,
+                            content_types=content_types,
                         )
                     ),
                     timeout=MEMORY_LOAD_TIMEOUT,
                 )
                 if docs:
                     lines = ["## Retrieved Knowledge Base"]
+                    fact_lines: list[str] = []
                     for index, doc in enumerate(docs):
                         score = doc.metadata.get("score", doc.metadata.get("rrf_score", 0))
                         source = doc.metadata.get("source", "unknown")
                         doc_id = doc.metadata.get("doc_id", f"doc_{index}")
-                        title = doc.metadata.get("entity_name") or doc_id
+                        chunk_id = doc.metadata.get("chunk_id")
+                        section_path = doc.metadata.get("section_path") or ""
+                        page_no = doc.metadata.get("page_no") or doc.metadata.get("page_range") or ""
+                        title = (
+                            section_path
+                            or doc.metadata.get("entity_name")
+                            or doc.metadata.get("metric_name")
+                            or doc_id
+                        )
                         snippet = doc.page_content[:600]
+                        if source == "fact_table":
+                            fact_lines.append(snippet)
                         lines.append(f"\n### [{source}] {title} (score: {float(score):.3f})")
+                        if page_no:
+                            lines.append(f"Page: {page_no}")
                         lines.append(snippet)
                         citations.append({
                             "doc_id": doc_id,
+                            "chunk_id": chunk_id,
+                            "section_path": section_path,
+                            "page_no": page_no,
                             "title": title,
                             "score": float(score),
                             "snippet": snippet[:200],
                             "source": source,
                         })
+                    if fact_lines:
+                        lines.insert(1, "\n## Exact Facts\n" + "\n".join(fact_lines[:5]))
                     parts.append("\n".join(lines))
             except Exception as exc:
                 print(f"[MemoryManager] Knowledge retrieval skipped: {exc}")

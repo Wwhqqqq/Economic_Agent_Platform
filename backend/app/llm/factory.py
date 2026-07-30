@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 
 from app.core.config import config, LLMProviderConfig
+from app.llm.providers import get_provider_vision_meta
 
 PROVIDER_LABELS = {
     "deepseek": "DeepSeek",
@@ -92,12 +93,15 @@ class LLMFactory:
         """列出所有可用 Provider 及其配置（脱敏后）"""
         result = []
         for name, cfg in config.providers.items():
+            vision = get_provider_vision_meta(name)
             result.append({
                 "name": name,
                 "display_name": PROVIDER_LABELS.get(name, name),
                 "model": cfg.model,
                 "base_url": cfg.base_url,
                 "is_default": name == config.agent.default_provider,
+                "supports_vision": vision.supports_vision,
+                "vision_models": vision.vision_models,
             })
         return result
 

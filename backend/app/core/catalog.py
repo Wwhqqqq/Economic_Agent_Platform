@@ -207,8 +207,8 @@ def enrich_skill(skill_dict: dict) -> dict:
     cat = skill_dict.get("category", "")
     return {
         **skill_dict,
-        "display_name": meta.get("display_name", skill_dict.get("name")),
-        "category_label": meta.get("category_label", CATEGORY_LABELS.get(cat, cat)),
+        "display_name": skill_dict.get("display_name") or meta.get("display_name", skill_dict.get("name")),
+        "category_label": skill_dict.get("category_label") or meta.get("category_label", CATEGORY_LABELS.get(cat, cat)),
         "workflow": meta.get("workflow", []),
     }
 

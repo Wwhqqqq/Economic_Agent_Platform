@@ -1,0 +1,12 @@
+id: accounting_full
+allow:
+  - balance_sheet_analyzer
+  - income_statement_analyzer
+  - cash_flow_analyzer
+  - financial_ratio_calculator
+  - dupont_analysis
+  - calculator
+  - web_search
+  - file_reader
+  - code_executor
+deny: []

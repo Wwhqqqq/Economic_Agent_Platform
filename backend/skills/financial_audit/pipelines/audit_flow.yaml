@@ -1,0 +1,41 @@
+id: audit_flow
+version: "1.0"
+description: 结构化财报 JSON 审阅流水线
+
+trigger:
+  type: json_schema_match
+  min_confidence: 0.8
+
+steps:
+  - id: parse_input
+    type: builtin
+    handler: extract_financial_json
+    output: financial_data
+
+  - id: analyze_balance
+    type: tool
+    tool: balance_sheet_analyzer
+    input: "{{ financial_data.balance_sheet }}"
+    output: bs_result
+
+  - id: analyze_ratios
+    type: tool
+    tool: financial_ratio_calculator
+    input:
+      balance: "{{ financial_data.balance_sheet }}"
+      income: "{{ financial_data.income_statement }}"
+    output: ratio_result
+
+  - id: synthesize
+    type: llm
+    prompt_template: prompts/synthesis.md
+    input:
+      bs: "{{ bs_result }}"
+      ratios: "{{ ratio_result }}"
+    output: final_report
+
+on_error:
+  fallback: react
+
+output:
+  format: markdown

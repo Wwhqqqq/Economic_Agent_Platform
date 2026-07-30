@@ -88,13 +88,16 @@ class VectorStoreRetriever:
             for i, doc_text in enumerate(results["documents"][0]):
                 meta = results["metadatas"][0][i] if results.get("metadatas") else {}
                 distance = results["distances"][0][i] if results.get("distances") else 0
-                doc_id = results["ids"][0][i] if results.get("ids") else f"doc_{i}"
+                result_id = results["ids"][0][i] if results.get("ids") else f"doc_{i}"
+                chunk_id = meta.get("chunk_id") or result_id
+                doc_id = meta.get("doc_id") or result_id
 
                 documents.append(
                     Document(
                         page_content=doc_text,
                         metadata={
                             **meta,
+                            "chunk_id": chunk_id,
                             "doc_id": doc_id,
                             "score": 1 - distance,
                             "source": "vector",
@@ -128,6 +131,10 @@ class VectorStoreRetriever:
 
     def delete(self, doc_id: str) -> None:
         self._chroma.delete(KNOWLEDGE_COLLECTION, [doc_id])
+
+    def delete_many(self, ids: list[str]) -> None:
+        if ids:
+            self._chroma.delete(KNOWLEDGE_COLLECTION, ids)
 
     def list_documents(
         self,

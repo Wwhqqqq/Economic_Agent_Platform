@@ -1,5 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import {
+  fetchSessionContext,
+  summonExpertSession,
+  clearExpertSession,
+  clearSkillSession,
+} from '../api/client'
 
 export const useSettingsStore = defineStore('settings', () => {
   const selectedProvider = ref('deepseek')
@@ -11,7 +17,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const activeExpertName = ref<string | null>(null)
   const expertDefaultSkill = ref<string | null>(null)
   const expertDefaultSkillLabel = ref<string | null>(null)
-  const skillInvocationSource = ref<'slash' | 'expert' | null>(null)
+  const skillInvocationSource = ref<'slash' | 'expert' | 'explicit' | null>(null)
 
   function setProvider(provider: string) {
     selectedProvider.value = provider
@@ -25,13 +31,38 @@ export const useSettingsStore = defineStore('settings', () => {
     selectedMode.value = mode
   }
 
-  function setActiveSkill(skill: string | null, label?: string | null, source?: 'slash' | 'expert' | null) {
+  function setActiveSkill(
+    skill: string | null,
+    label?: string | null,
+    source?: 'slash' | 'expert' | 'explicit' | null,
+  ) {
     activeSkill.value = skill
     activeSkillLabel.value = label ?? skill
     if (source !== undefined) skillInvocationSource.value = source
   }
 
-  function summonExpert(expert: {
+  function applyContext(ctx: any) {
+    activeExpertId.value = ctx.expert_id ?? null
+    activeExpertName.value = ctx.expert_name ?? null
+    activeSkill.value = ctx.active_skill ?? null
+    activeSkillLabel.value = ctx.active_skill_label ?? ctx.active_skill ?? null
+    skillInvocationSource.value = ctx.skill_invocation ?? null
+    const defaultSkill = ctx.expert_default_skill
+    expertDefaultSkill.value = defaultSkill?.name ?? null
+    expertDefaultSkillLabel.value = defaultSkill?.display_name ?? null
+    if (ctx.mode) selectedMode.value = ctx.mode
+  }
+
+  async function syncFromBackend(sessionId: string) {
+    try {
+      const ctx = await fetchSessionContext(sessionId)
+      applyContext(ctx)
+    } catch (e) {
+      console.error('[Settings] sync context failed', e)
+    }
+  }
+
+  function summonExpertLocal(expert: {
     id: string
     name: string
     equipped_skills?: { name: string; display_name: string }[]
@@ -48,7 +79,35 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  function clearExpert() {
+  async function summonExpert(
+    expert: {
+      id: string
+      name: string
+      equipped_skills?: { name: string; display_name: string }[]
+    },
+    sessionId?: string,
+  ) {
+    summonExpertLocal(expert)
+    if (sessionId) {
+      try {
+        const ctx = await summonExpertSession(sessionId, expert.id)
+        applyContext(ctx)
+      } catch (e) {
+        console.error('[Settings] summon API failed', e)
+      }
+    }
+  }
+
+  async function clearExpert(sessionId?: string) {
+    if (sessionId) {
+      try {
+        const ctx = await clearExpertSession(sessionId)
+        applyContext(ctx)
+        return
+      } catch (e) {
+        console.error('[Settings] clear expert API failed', e)
+      }
+    }
     activeExpertId.value = null
     activeExpertName.value = null
     expertDefaultSkill.value = null
@@ -60,7 +119,16 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  function clearSkill() {
+  async function clearSkill(sessionId?: string) {
+    if (sessionId) {
+      try {
+        const ctx = await clearSkillSession(sessionId)
+        applyContext(ctx)
+        return
+      } catch (e) {
+        console.error('[Settings] clear skill API failed', e)
+      }
+    }
     if (activeExpertId.value && expertDefaultSkill.value) {
       activeSkill.value = expertDefaultSkill.value
       activeSkillLabel.value = expertDefaultSkillLabel.value
@@ -73,8 +141,13 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function resetSessionContext() {
-    clearExpert()
-    clearSkill()
+    activeExpertId.value = null
+    activeExpertName.value = null
+    expertDefaultSkill.value = null
+    expertDefaultSkillLabel.value = null
+    activeSkill.value = null
+    activeSkillLabel.value = null
+    skillInvocationSource.value = null
     selectedMode.value = 'adaptive'
   }
 
@@ -91,6 +164,8 @@ export const useSettingsStore = defineStore('settings', () => {
     setModel,
     setMode,
     setActiveSkill,
+    applyContext,
+    syncFromBackend,
     summonExpert,
     clearExpert,
     clearSkill,

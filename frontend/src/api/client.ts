@@ -140,6 +140,15 @@ export async function uploadKnowledge(content: string, metadata?: Record<string,
   return data
 }
 
+export async function uploadKnowledgeMedia(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post('/knowledge/upload/media', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
 export async function uploadKnowledgeFile(file: File) {
   const form = new FormData()
   form.append('file', file)
@@ -161,6 +170,26 @@ export async function deleteKnowledgeDocument(docId: string) {
 
 export async function searchKnowledge(query: string, topK = 5, mode = 'hybrid') {
   const { data } = await api.post('/knowledge/search', { query, top_k: topK, mode })
+  return data
+}
+
+export async function fetchSessionContext(sessionId: string) {
+  const { data } = await api.get(`/sessions/${sessionId}/context`)
+  return data
+}
+
+export async function summonExpertSession(sessionId: string, expertId: string) {
+  const { data } = await api.post(`/sessions/${sessionId}/summon`, { expert_id: expertId })
+  return data
+}
+
+export async function clearExpertSession(sessionId: string) {
+  const { data } = await api.delete(`/sessions/${sessionId}/summon`)
+  return data
+}
+
+export async function clearSkillSession(sessionId: string) {
+  const { data } = await api.delete(`/sessions/${sessionId}/skill`)
   return data
 }
 
@@ -196,6 +225,11 @@ export async function executeSkill(
     model: options.model,
     temperature: options.temperature ?? 0.7,
   })
+  return data
+}
+
+export async function fetchKnowledgeDocStatus(docId: string) {
+  const { data } = await api.get(`/knowledge/documents/${docId}/status`)
   return data
 }
 

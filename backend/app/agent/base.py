@@ -57,8 +57,13 @@ class AgentConfig:
     active_skill: str | None = None
     expert_id: str | None = None
     skill_invocation: str | None = None
+    context_strategy: dict | None = None
     streaming: bool = True
     system_prompt: str = None
+    team_protocol: str | None = None
+    team_class: str | None = None
+    engine: str | None = None
+    attachments: list[dict] | None = None
 
 
 class BaseAgent(ABC):

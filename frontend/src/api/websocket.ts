@@ -76,17 +76,21 @@ export class ChatWebSocket {
     return this.connectPromise
   }
 
-  async send(input: string, options: {
-    mode?: string
-    skill?: string | null
-    expert_id?: string | null
-    skill_invocation?: 'slash' | 'expert' | null
-    clear_skill?: boolean
-    clear_expert?: boolean
-    provider?: string
-    model?: string | null
-    temperature?: number
-  } = {}) {
+  async send(
+    input: string,
+    options: {
+      mode?: string
+      skill?: string | null
+      expert_id?: string | null
+      skill_invocation?: 'slash' | 'expert' | null
+      clear_skill?: boolean
+      clear_expert?: boolean
+      provider?: string
+      model?: string | null
+      temperature?: number
+      attachments?: Array<Record<string, unknown>>
+    } = {}
+  ) {
     try {
       await this.connect()
     } catch (e) {
@@ -113,6 +117,7 @@ export class ChatWebSocket {
     if (options.clear_skill) payload.clear_skill = true
     if (options.clear_expert) payload.clear_expert = true
     if (options.model) payload.model = options.model
+    if (options.attachments?.length) payload.attachments = options.attachments
 
     this.ws.send(JSON.stringify(payload))
   }

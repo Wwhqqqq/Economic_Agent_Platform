@@ -1,0 +1,5 @@
+id: heavy_knowledge
+max_history: 12
+include_knowledge: true
+include_entities: true
+include_long_term: true

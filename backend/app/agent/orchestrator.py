@@ -65,14 +65,25 @@ class AgentOrchestrator:
             return "task_orchestration"
         return "reasoning_action"
 
-    def _get_agent(self, canonical_mode: str) -> BaseAgent:
+    def _get_agent(self, canonical_mode: str, config: AgentConfig | None = None):
+        if config and (config.engine == "team_protocol" or config.team_protocol):
+            from app.orchestration.team_protocol import TeamProtocolEngine
+            return TeamProtocolEngine()
         legacy = resolve_legacy_mode(canonical_mode)
         if legacy == "multi_agent":
+            if config and config.team_protocol:
+                from app.orchestration.team_protocol import TeamProtocolEngine
+                return TeamProtocolEngine()
             from app.multi_agent.accounting.debate_team import AccountingDebateTeam
             return AccountingDebateTeam()
         if legacy == "plan_execute":
             return self._plan_execute_agent
         return self._react_agent
+
+    def _resolve_mode(self, user_input: str, mode: str, config: AgentConfig) -> str:
+        if config.engine == "team_protocol" or config.team_protocol:
+            return "collaborative_decision"
+        return self._select_mode(user_input, mode)
 
     async def invoke(
         self,
@@ -81,8 +92,12 @@ class AgentOrchestrator:
         mode: str = "adaptive",
     ) -> AgentResponse:
         config = self._prepare_config(config)
-        selected = self._select_mode(user_input, mode)
-        agent = self._get_agent(selected)
+        selected = self._resolve_mode(user_input, mode, config)
+        agent = self._get_agent(selected, config)
+        if agent.__class__.__name__ == "TeamProtocolEngine":
+            return await agent.invoke(
+                user_input, config, protocol_id=config.team_protocol or "debate_v1"
+            )
         return await agent.invoke(user_input, config)
 
     async def stream(
@@ -92,10 +107,10 @@ class AgentOrchestrator:
         mode: str = "adaptive",
     ) -> AsyncIterator[AgentEvent]:
         config = self._prepare_config(config)
-        selected = self._select_mode(user_input, mode)
+        selected = self._resolve_mode(user_input, mode, config)
 
         mode_meta = EXECUTION_MODES.get(selected, {})
-        skill_name = config.active_skill or get_active_skill_name()
+        skill_name = config.active_skill
         active_skill = skill_registry.get(skill_name) if skill_name else None
         yield AgentEvent(
             type=AgentEventType.START,
@@ -107,10 +122,20 @@ class AgentOrchestrator:
                 "provider": config.provider,
                 "active_skill": active_skill.name if active_skill else None,
                 "expert_id": config.expert_id,
+                "team_protocol": config.team_protocol,
             },
         )
 
-        agent = self._get_agent(selected)
+        agent = self._get_agent(selected, config)
+        if agent.__class__.__name__ == "TeamProtocolEngine":
+            async for event in agent.stream(
+                user_input, config, protocol_id=config.team_protocol or "debate_v1"
+            ):
+                if event.type == AgentEventType.START:
+                    continue
+                yield event
+            return
+
         async for event in agent.stream(user_input, config):
             if event.type == AgentEventType.START:
                 continue

@@ -1,0 +1,47 @@
+id: finance_review_board
+type: team
+version: "1.0.0"
+enabled: true
+category: finance
+
+display:
+  name: 财务评审委员会
+  tagline: 分析师 · 质疑官 · 裁决官 三轮协作，输出评审结论
+  domains: [投资评审, 风险识别, 并购尽调]
+  members:
+    - role: 财务分析师
+      stance: 基于数据提出分析结论与假设
+    - role: 审计质疑官
+      stance: 挑战假设，识别会计红旗与舞弊信号
+    - role: 投资裁决官
+      stance: 综合辩论，给出最终评审意见
+  collaboration_flow:
+    - 分析师独立分析并引用工具结果
+    - 质疑官逐条挑战分析假设
+    - 裁决官形成最终评审报告
+  equipped_skills: []
+  example_tasks:
+    - label: 多视角投资评审
+      prompt: 请对以下公司财务数据组织一场评审委员会辩论，并给出投资意见
+
+runtime:
+  engine: team_protocol
+  protocol: debate_v1
+  default_mode: collaborative_decision
+  default_skill: null
+  tool_policy: accounting_full
+  memory_policy: standard
+  team_class: AccountingDebateTeam
+
+prompts:
+  persona: |
+    你是财务评审委员会协调者，将组织分析师、质疑官与裁决官完成多轮结构化评审。
+  constraints:
+    - 各角色需独立输出观点
+    - 最终结论需综合三方意见
+
+permissions:
+  min_user_type: regular
+
+metadata:
+  owner: platform

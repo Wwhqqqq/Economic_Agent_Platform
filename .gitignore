@@ -38,6 +38,10 @@ data/docker/neo4j/logs/*
 data/docker/mysql/*
 data/docker/redis/*
 backend/data/chroma/*
+backend/data/objects/*
+backend/data/sessions/*
+!backend/data/objects/.gitkeep
+!backend/data/sessions/.gitkeep
 data/chroma/*
 data/settings.json
 data/audit.log

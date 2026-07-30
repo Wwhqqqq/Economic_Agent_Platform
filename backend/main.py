@@ -28,6 +28,8 @@ from app.api.auth import router as auth_router
 from app.api.system import router as system_router
 from app.api.audit import router as audit_router
 from app.api.experts import router as experts_router
+from app.api.session_context import router as session_context_router
+from app.api.media import router as media_router
 
 
 # ---- 自动注册所有内置工具 ----
@@ -66,18 +68,11 @@ def register_all_tools():
 
 
 def register_all_skills():
-    """自动注册所有内置技能"""
+    """Scan skills/ directory for SKILL.md manifests."""
     from app.skills.registry import skill_registry
 
-    from app.skills.builtin.document_analysis import DocumentAnalysisSkill
-    from app.skills.builtin.data_viz import DataVisualizationSkill
-    from app.skills.builtin.financial_audit import FinancialAuditSkill
-
-    skill_registry.register(DocumentAnalysisSkill())
-    skill_registry.register(DataVisualizationSkill())
-    skill_registry.register(FinancialAuditSkill())
-
-    print(f"[Startup] Registered {skill_registry.skill_count} skills")
+    count = skill_registry.load_from_directory()
+    print(f"[Startup] Registered {count} skills from SKILL.md packs")
 
 
 # ---- 创建 FastAPI 应用 ----
@@ -111,6 +106,8 @@ app.include_router(auth_router)
 app.include_router(system_router)
 app.include_router(audit_router)
 app.include_router(experts_router)
+app.include_router(session_context_router)
+app.include_router(media_router)
 
 
 @app.on_event("startup")

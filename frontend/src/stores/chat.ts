@@ -167,6 +167,8 @@ export const useChatStore = defineStore('chat', () => {
         })
       }
     } catch (e) { console.error(e) }
+    const { useSettingsStore } = await import('./settings')
+    await useSettingsStore().syncFromBackend(id)
   }
 
   async function newSession() {
@@ -186,6 +188,19 @@ export const useChatStore = defineStore('chat', () => {
     await loadSessions()
   }
 
+  async function sendContextClear(options: { clear_skill?: boolean; clear_expert?: boolean }) {
+    isLoading.value = false
+    try {
+      await ws.value?.send('', {
+        mode: 'adaptive',
+        clear_skill: options.clear_skill,
+        clear_expert: options.clear_expert,
+      })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   async function sendMessage(
     content: string,
     options: {
@@ -195,9 +210,10 @@ export const useChatStore = defineStore('chat', () => {
       skill_invocation?: 'slash' | 'expert' | null
       provider?: string
       model?: string | null
+      attachments?: Array<Record<string, unknown>>
     } = {}
   ) {
-    if (!content.trim()) return
+    if (!content.trim() && !(options.attachments?.length)) return
 
     messages.value.push({
       id: 'u_' + Date.now(),
@@ -265,6 +281,7 @@ export const useChatStore = defineStore('chat', () => {
     newSession,
     renameCurrentSession,
     sendMessage,
+    sendContextClear,
     clearChat,
     exportMessage,
   }

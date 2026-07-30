@@ -58,6 +58,27 @@ class KnowledgeGraphRetriever:
             self._neo4j.upsert_entity(name, entity.get("type", "Concept"), user_id=user_id)
             self._neo4j.link_document_entity(doc_id, name, user_id=user_id)
 
+    def link_document_entity(self, doc_id: str, entity_name: str, user_id: int | None = None) -> None:
+        self._neo4j.link_document_entity(doc_id, entity_name, user_id=user_id)
+
+    def upsert_chunk(
+        self,
+        chunk_id: str,
+        doc_id: str,
+        snippet: str,
+        user_id: int | None = None,
+        visibility: str = "private",
+        section_path: str = "",
+    ) -> None:
+        self._neo4j.upsert_chunk(
+            chunk_id=chunk_id,
+            doc_id=doc_id,
+            snippet=snippet,
+            user_id=user_id,
+            visibility=visibility,
+            section_path=section_path,
+        )
+
     def retrieve(
         self,
         query: str,
@@ -158,6 +179,9 @@ class KnowledgeGraphRetriever:
 
     def delete_document(self, doc_id: str, user_id: int | None = None) -> None:
         self._neo4j.delete_document(doc_id, user_id=user_id)
+
+    def upsert_metric_value(self, **kwargs) -> None:
+        self._neo4j.upsert_metric_value(**kwargs)
 
     def as_retriever(self, top_k: int = 5, depth: int = 1):
         def _retrieve(query: str):

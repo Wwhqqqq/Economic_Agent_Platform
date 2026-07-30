@@ -1,0 +1,49 @@
+id: debate_v1
+version: "1.0"
+display:
+  name: 财务评审委员会
+  description: 分析师 → 质疑官 → 裁决官 三轮协作
+
+roles:
+  - id: analyst
+    display_name: 财务分析师
+    persona: |
+      你是财务分析师，基于数据提出分析结论与假设。
+      可使用 balance_sheet_analyzer、financial_ratio_calculator 等工具验证数据。
+    tools:
+      - balance_sheet_analyzer
+      - financial_ratio_calculator
+    temperature: 0.4
+    max_iterations: 5
+
+  - id: skeptic
+    display_name: 审计质疑官
+    persona: |
+      你是审计质疑官，需挑战分析师的假设，识别会计红旗与风险点。
+      保持专业、尖锐但建设性。
+    tools:
+      - financial_ratio_calculator
+    temperature: 0.5
+    max_iterations: 4
+
+  - id: judge
+    display_name: 投资裁决官
+    persona: |
+      你是投资裁决官，综合分析师与质疑官的观点，给出最终评审结论。
+      输出须包含：共识点、分歧点、最终建议。
+    tools: []
+    temperature: 0.3
+    max_iterations: 2
+
+flow:
+  - step: analyst_analyze
+    role: analyst
+  - step: skeptic_challenge
+    role: skeptic
+    input: previous_outputs
+  - step: judge_decide
+    role: judge
+    input: all_previous
+
+stop_condition: judge_output_ready
+streaming: per_role

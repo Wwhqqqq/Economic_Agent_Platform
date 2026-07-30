@@ -48,3 +48,31 @@ def knowledge_metadata(
     }
     meta.update(extra)
     return meta
+
+
+def chunk_metadata(
+    *,
+    chunk_id: str,
+    doc_id: str,
+    user_id: int,
+    visibility: Visibility = "private",
+    content_type: str = "paragraph",
+    section_path: str = "",
+    seq: int = 0,
+    page_range: str = "",
+    **extra: Any,
+) -> dict[str, Any]:
+    """Standard Chroma metadata for knowledge chunks."""
+    meta = {
+        "chunk_id": chunk_id,
+        "doc_id": doc_id,
+        "user_id": int(user_id),
+        "visibility": visibility,
+        "content_type": content_type,
+        "section_path": section_path or "",
+        "page_range": page_range or "",
+        "seq": int(seq),
+        "source": extra.pop("source", "knowledge_chunk"),
+    }
+    meta.update(extra)
+    return meta

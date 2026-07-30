@@ -80,6 +80,9 @@ class Neo4jClient:
             "CREATE INDEX IF NOT EXISTS FOR (n:Conversation) ON (n.user_id)",
             "CREATE INDEX IF NOT EXISTS FOR (n:Document) ON (n.doc_id)",
             "CREATE INDEX IF NOT EXISTS FOR (n:Document) ON (n.user_id)",
+            "CREATE INDEX IF NOT EXISTS FOR (n:Chunk) ON (n.chunk_id)",
+            "CREATE INDEX IF NOT EXISTS FOR (n:Metric) ON (n.user_id)",
+            "CREATE INDEX IF NOT EXISTS FOR (n:Company) ON (n.user_id)",
         ]
         for q in queries:
             try:
@@ -198,6 +201,41 @@ class Neo4jClient:
                 "user_id": int(user_id or 0),
                 "visibility": visibility,
                 "props": props,
+            },
+        )
+
+    def upsert_chunk(
+        self,
+        chunk_id: str,
+        doc_id: str,
+        snippet: str,
+        user_id: int | None = None,
+        visibility: str = "private",
+        section_path: str = "",
+    ) -> None:
+        if not self._available:
+            return
+        uid = int(user_id or 0)
+        self._run(
+            """
+            MERGE (c:Chunk {chunk_id: $chunk_id})
+            SET c.doc_id = $doc_id
+            SET c.snippet = $snippet
+            SET c.user_id = $user_id
+            SET c.visibility = $visibility
+            SET c.section_path = $section_path
+            SET c.updated_at = datetime()
+            WITH c
+            MATCH (d:Document {doc_id: $doc_id, user_id: $user_id})
+            MERGE (d)-[:HAS_CHUNK]->(c)
+            """,
+            {
+                "chunk_id": chunk_id,
+                "doc_id": doc_id,
+                "snippet": snippet[:200],
+                "user_id": uid,
+                "visibility": visibility,
+                "section_path": section_path or "",
             },
         )
 
@@ -374,7 +412,8 @@ class Neo4jClient:
             self._run(
                 """
                 MATCH (d:Document {doc_id: $doc_id})
-                DETACH DELETE d
+                OPTIONAL MATCH (d)-[:HAS_CHUNK]->(c:Chunk)
+                DETACH DELETE c, d
                 """,
                 {"doc_id": doc_id},
             )
@@ -382,7 +421,8 @@ class Neo4jClient:
         self._run(
             """
             MATCH (d:Document {doc_id: $doc_id, user_id: $user_id})
-            DETACH DELETE d
+            OPTIONAL MATCH (d)-[:HAS_CHUNK]->(c:Chunk)
+            DETACH DELETE c, d
             """,
             {"doc_id": doc_id, "user_id": int(user_id)},
         )
@@ -402,6 +442,52 @@ class Neo4jClient:
             {"session_id": session_id, "user_id": uid},
         )
         return results[0].get("removed", 0) if results else 0
+
+    def upsert_metric_value(
+        self,
+        *,
+        user_id: int,
+        company: str,
+        metric_name: str,
+        metric_code: str | None,
+        period: str | None,
+        amount: float | None,
+        raw_text: str | None,
+        doc_id: str,
+        table_id: str | None = None,
+        source_page: int | None = None,
+    ) -> None:
+        if not self._available:
+            return
+        uid = int(user_id)
+        self._run(
+            """
+            MERGE (co:Company {user_id: $user_id, name: $company})
+            MERGE (m:Metric {user_id: $user_id, name: $metric_name})
+            SET m.std_code = $metric_code
+            MERGE (co)-[:HAS_METRIC]->(m)
+            MERGE (d:Document {doc_id: $doc_id, user_id: $user_id})
+            MERGE (m)-[v:VALUE]->(d)
+            SET v.period = $period
+            SET v.amount = $amount
+            SET v.raw_text = $raw_text
+            SET v.table_id = $table_id
+            SET v.source_page = $source_page
+            SET v.updated_at = datetime()
+            """,
+            {
+                "user_id": uid,
+                "company": company or "Unknown",
+                "metric_name": metric_name,
+                "metric_code": metric_code or "",
+                "period": period or "",
+                "amount": amount,
+                "raw_text": (raw_text or "")[:200],
+                "doc_id": doc_id,
+                "table_id": table_id or "",
+                "source_page": source_page,
+            },
+        )
 
     def close(self) -> None:
         if self._driver:

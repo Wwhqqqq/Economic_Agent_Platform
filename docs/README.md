@@ -15,6 +15,7 @@
 | 多 Agent 协同 | [multi-agent/](./multi-agent/) | 辩论团队、角色分工、多轮决策 |
 | LLM 与配置 | [llm/](./llm/) | 多 Provider 工厂、运行时配置 |
 | API 与前端 | [api-frontend/](./api-frontend/) | REST / WebSocket、页面与状态管理 |
+| **目标架构（待实施）** | [architecture/target/](./architecture/target/) | 分批路线图（**00**）、PDF/向量/专家/技能/多模态 — 最优设计蓝图 |
 | **多用户体系（设计）** | [多用户/](./多用户/) | MySQL 多租户、登录鉴权、记忆/RAG 隔离、安全与实施路线 |
 
 ## 与其他文档的关系

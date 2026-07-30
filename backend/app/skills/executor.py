@@ -14,7 +14,6 @@ from app.agent.runtime import (
 )
 from app.rag.entity_extractor import extract_json_blob
 from app.skills.base import BaseSkill, SkillResult
-from app.skills.registry import skill_registry
 from app.tools.registry import tool_registry
 from langchain_core.messages import HumanMessage
 
@@ -31,9 +30,9 @@ class SkillExecutor:
         persist_memory: bool = False,
     ) -> SkillResult:
         """通过 ReAct Agent（技能 Prompt + 工具筛选）执行技能。"""
-        config = normalize_agent_config(config)
-        previous = skill_registry.get_active()
-        skill_registry.activate(skill.name)
+        config = normalize_agent_config(config or AgentConfig())
+        if not config.active_skill:
+            config.active_skill = skill.name
         try:
             response = await collect_react_response(
                 user_input,
@@ -52,11 +51,6 @@ class SkillExecutor:
                 tool_calls=[],
                 error=str(exc),
             )
-        finally:
-            if previous:
-                skill_registry.activate(previous.name)
-            else:
-                skill_registry.deactivate()
 
     @staticmethod
     async def run_tool_step(tool_name: str, **kwargs) -> dict:
@@ -199,15 +193,26 @@ Code execution:
         user_input: str,
         config: AgentConfig | None = None,
     ) -> SkillResult:
-        """统一技能执行入口。"""
-        if skill.name == "financial_audit":
-            financial_data = extract_json_blob(user_input)
-            if financial_data:
-                return await cls.run_financial_audit_pipeline(
-                    user_input, financial_data, config
-                )
+        """统一技能执行入口 — hybrid pipeline with ReAct fallback."""
+        manifest = getattr(skill, "manifest", None)
+        if manifest and manifest.runtime_type in ("pipeline", "hybrid") and manifest.pipeline_name:
+            from app.orchestration.pipeline_engine import PipelineEngine
+            from pathlib import Path
+
+            pack_root = Path(manifest.pack_root)
+            engine = PipelineEngine(pack_root)
+            if PipelineEngine.pipeline_trigger_matches(pack_root, manifest.pipeline_name, user_input):
+                try:
+                    result = await engine.run(manifest.pipeline_name, user_input, config)
+                    if result.success:
+                        return result
+                except Exception as exc:
+                    if manifest.runtime_type == "pipeline":
+                        return SkillResult(success=False, output="", tool_calls=[], error=str(exc))
+                    print(f"[SkillExecutor] pipeline failed, fallback react: {exc}")
+
         if skill.name == "document_analysis":
             return await cls.run_document_analysis_pipeline(user_input, config)
-        if skill.name == "data_viz":
+        if skill.name == "data_visualization":
             return await cls.run_data_viz_pipeline(user_input, config)
         return await cls.run_via_react(skill, user_input, config)

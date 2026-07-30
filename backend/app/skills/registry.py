@@ -1,12 +1,18 @@
 """
 技能注册中心 — 动态技能管理
 
-支持技能的注册、激活、工具依赖检查
+支持 SKILL.md 目录扫描与运行时注册
 """
-from typing import Optional, Callable
+from __future__ import annotations
+
+import os
+from typing import Callable, Optional
 
 from app.skills.base import BaseSkill
+from app.skills.loader import discover_skillpacks
 from app.tools.registry import tool_registry
+
+SKILLS_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "skills")
 
 
 class SkillRegistry:
@@ -16,7 +22,6 @@ class SkillRegistry:
 
     def __init__(self):
         self._skills: dict[str, BaseSkill] = {}
-        self._active_skill: Optional[str] = None
         self._on_skill_change: list[Callable] = []
 
     @classmethod
@@ -31,8 +36,6 @@ class SkillRegistry:
 
     def unregister(self, name: str) -> bool:
         if name in self._skills:
-            if self._active_skill == name:
-                self._active_skill = None
             del self._skills[name]
             return True
         return False
@@ -47,26 +50,6 @@ class SkillRegistry:
                 missing.append(tool_name)
         return missing
 
-    def activate(self, name: str) -> Optional[BaseSkill]:
-        skill = self._skills.get(name)
-        if skill:
-            missing = self._validate_tools(skill)
-            if missing:
-                print(f"[Skills] Warning: missing tools for '{name}': {missing}")
-            self._active_skill = name
-            for callback in self._on_skill_change:
-                callback(name)
-            print(f"[Skills] Activated: {name}")
-        return skill
-
-    def deactivate(self) -> None:
-        self._active_skill = None
-
-    def get_active(self) -> Optional[BaseSkill]:
-        if self._active_skill:
-            return self._skills.get(self._active_skill)
-        return None
-
     def list_all(self) -> list[dict]:
         return [
             {
@@ -76,10 +59,27 @@ class SkillRegistry:
                 "icon": skill.icon,
                 "required_tools": skill.get_required_tools(),
                 "context_strategy": skill.get_context_strategy(),
-                "active": skill.name == self._active_skill,
+                **(
+                    skill.to_dict()
+                    if hasattr(skill, "to_dict")
+                    else {}
+                ),
             }
             for skill in self._skills.values()
         ]
+
+    def list_invocable(self) -> list[dict]:
+        items = []
+        for skill in self._skills.values():
+            data = skill.to_dict() if hasattr(skill, "to_dict") else {
+                "name": skill.name,
+                "description": skill.description,
+            }
+            user_invocable = data.get("user_invocable", True)
+            if user_invocable is False:
+                continue
+            items.append(data)
+        return items
 
     def list_categories(self) -> list[str]:
         return list(set(skill.category for skill in self._skills.values()))
@@ -89,6 +89,20 @@ class SkillRegistry:
 
     def on_change(self, callback: Callable) -> None:
         self._on_skill_change.append(callback)
+
+    def load_from_directory(self, skills_root: str | None = None) -> int:
+        from app.skills.skillpack import SkillPackSkill
+
+        root = skills_root or SKILLS_ROOT
+        count = 0
+        for manifest in discover_skillpacks(root):
+            skill = SkillPackSkill(manifest)
+            missing = self._validate_tools(skill)
+            if missing:
+                print(f"[Skills] Warning: missing tools for '{skill.name}': {missing}")
+            self.register(skill)
+            count += 1
+        return count
 
     @property
     def skill_count(self) -> int:

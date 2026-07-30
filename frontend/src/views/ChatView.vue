@@ -158,6 +158,11 @@
         </span>
       </div>
       <div class="input-shell">
+        <AttachmentUpload
+          ref="attachmentRef"
+          :disabled="chatStore.isLoading"
+          @update="onAttachmentsUpdate"
+        />
         <SlashSkillMenu
           ref="slashMenuRef"
           :visible="slashMenuVisible"
@@ -185,7 +190,7 @@
           </button>
         </div>
       </div>
-      <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 输入 <code>/</code> 召唤技能</div>
+      <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 输入 <code>/</code> 召唤技能 · 可拖入图片</div>
     </div>
   </div>
 </template>
@@ -209,7 +214,6 @@ import {
   Cpu,
 } from '@element-plus/icons-vue'
 import { useChatStore } from '../stores/chat'
-import { useSettingsStore } from '../stores/settings'
 import { usePlatformStore } from '../stores/platform'
 import { useAuthStore } from '../stores/auth'
 import { fetchExperts, fetchInvocableSkills, fetchLLMConfig } from '../api/client'
@@ -220,6 +224,8 @@ import EmptyState from '../components/ui/EmptyState.vue'
 import QuickChip from '../components/ui/QuickChip.vue'
 import MembershipBadge from '../components/ui/MembershipBadge.vue'
 import SlashSkillMenu, { type InvocableSkill } from '../components/chat/SlashSkillMenu.vue'
+import AttachmentUpload, { type AttachmentItem } from '../components/chat/AttachmentUpload.vue'
+import { useSettingsStore } from '../stores/settings'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -252,10 +258,13 @@ const inputPlaceholder = computed(() =>
     : '输入您的问题，或 / 召唤技能…'
 )
 
+const attachmentRef = ref<InstanceType<typeof AttachmentUpload> | null>(null)
+const pendingAttachments = ref<AttachmentItem[]>([])
+
 const canSend = computed(() => {
   const { skill, message } = parseSlashCommand(inputText.value)
   if (skill) return message.trim().length > 0
-  return inputText.value.trim().length > 0
+  return inputText.value.trim().length > 0 || pendingAttachments.value.length > 0
 })
 
 const md = new MarkdownIt({ breaks: true, linkify: true })
@@ -296,13 +305,16 @@ onMounted(async () => {
 watch(() => route.query, applyRouteSummon)
 
 async function applyRouteSummon() {
+  await settingsStore.syncFromBackend(chatStore.sessionId)
   const summonId = route.query.summon as string | undefined
   if (!summonId) return
   try {
     const data = await fetchExperts()
     const all = [...(data.experts || []), ...(data.teams || [])]
     const profile = all.find((p: any) => p.id === summonId)
-    if (profile) settingsStore.summonExpert(profile)
+    if (profile) {
+      await settingsStore.summonExpert(profile, chatStore.sessionId)
+    }
   } catch (e) { console.error(e) }
   const prompt = route.query.prompt as string | undefined
   if (prompt) inputText.value = prompt
@@ -326,12 +338,18 @@ function applySlash(name: string) {
   textareaRef.value?.focus()
 }
 
-function clearSkill() {
-  settingsStore.clearSkill()
+async function clearSkill() {
+  await settingsStore.clearSkill(chatStore.sessionId)
+  await chatStore.sendContextClear({ clear_skill: true })
 }
 
-function clearExpert() {
-  settingsStore.clearExpert()
+async function clearExpert() {
+  await settingsStore.clearExpert(chatStore.sessionId)
+  await chatStore.sendContextClear({ clear_expert: true })
+}
+
+function onAttachmentsUpdate(items: AttachmentItem[]) {
+  pendingAttachments.value = items
 }
 
 function sendMessage() {
@@ -358,9 +376,20 @@ function sendMessage() {
     skill_invocation: skillInvocation,
     provider: settingsStore.selectedProvider,
     model: settingsStore.selectedModel || null,
+    attachments: pendingAttachments.value.map(a => ({
+      asset_id: a.asset_id,
+      url: a.data_url || a.url,
+      data_url: a.data_url,
+      ocr_text: a.ocr_text,
+      vlm_caption: a.vlm_caption,
+      caption: a.vlm_caption,
+      filename: a.filename,
+    })),
   })
   inputText.value = ''
   slashMenuVisible.value = false
+  attachmentRef.value?.clear()
+  pendingAttachments.value = []
 }
 
 function handleKeydown(e: KeyboardEvent) {

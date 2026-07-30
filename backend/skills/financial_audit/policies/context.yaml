@@ -1,0 +1,11 @@
+max_history: 12
+include_knowledge: true
+include_entities: true
+include_long_term: true
+knowledge_top_k: 8
+retrieval_mode: hybrid
+rerank: true
+content_types:
+  - paragraph
+  - table_row
+  - table_summary

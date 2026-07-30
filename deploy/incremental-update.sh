@@ -228,10 +228,17 @@ for svc in "${BUILD_LIST[@]}"; do
   [[ -n "$svc" ]] && compose build "$svc"
 done
 
-# ---------- 数据库迁移 ----------
-log "Alembic 迁移 (upgrade head)"
+# ---------- 数据库迁移 (Batch 1–5: 003→006) ----------
+log "Alembic 迁移 (upgrade head → 006_media_vlm)"
+
+info "迁移链: 003_knowledge_chunks → 004_media_assets → 005_knowledge_facts → 006_media_vlm"
+if compose run --rm migrate alembic current 2>/dev/null; then
+  info "迁移前版本 ↑"
+fi
 
 compose run --rm migrate
+info "迁移后版本:"
+compose run --rm migrate alembic current 2>/dev/null || true
 info "迁移完成"
 
 # ---------- 滚动更新 backend + gateway ----------
