@@ -27,6 +27,7 @@ from app.api.catalog import router as catalog_router
 from app.api.auth import router as auth_router
 from app.api.system import router as system_router
 from app.api.audit import router as audit_router
+from app.api.experts import router as experts_router
 
 
 # ---- 自动注册所有内置工具 ----
@@ -109,6 +110,7 @@ app.include_router(catalog_router)
 app.include_router(auth_router)
 app.include_router(system_router)
 app.include_router(audit_router)
+app.include_router(experts_router)
 
 
 @app.on_event("startup")

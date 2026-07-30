@@ -9,7 +9,8 @@ const router = createRouter({
     { path: '/', name: 'chat', component: () => import('../views/ChatView.vue') },
     { path: '/tools', name: 'tools', component: () => import('../views/ToolsView.vue') },
     { path: '/skills', name: 'skills', component: () => import('../views/SkillsView.vue') },
-    { path: '/agents', name: 'agents', component: () => import('../views/AgentsView.vue') },
+    { path: '/experts', name: 'experts', component: () => import('../views/ExpertsView.vue') },
+    { path: '/agents', redirect: '/experts' },
     { path: '/knowledge', name: 'knowledge', component: () => import('../views/KnowledgeView.vue') },
     { path: '/membership', name: 'membership', component: () => import('../views/MembershipView.vue') },
     {

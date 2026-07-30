@@ -7,6 +7,7 @@
 | 文档 | 状态 | 说明 |
 |------|------|------|
 | [LLM 真流式输出 PRD](./LLM真流式输出-PRD.md) | 已实现 | WorkBuddy 级 token 流式；ReAct/Plan-Execute/Multi-Agent |
+| [WorkBuddy 对标：技能斜杠与专家中心 PRD](./WorkBuddy对标-技能斜杠与专家中心-PRD.md) | 待评审 | 聊天 `/` 召唤技能；专家/专家团替代执行引擎展示 |
 
 ## 关联设计文档
 

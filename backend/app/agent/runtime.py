@@ -82,7 +82,6 @@ def resolve_system_prompt(config: AgentConfig) -> str:
             return f"{skill_prompt}\n\n{base_prompt}"
     return base_prompt
 
-
 def get_langchain_tools(config: AgentConfig | None = None):
     config = normalize_agent_config(config)
     active_skill = _resolve_active_skill(config)

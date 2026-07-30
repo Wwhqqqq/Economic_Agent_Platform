@@ -14,6 +14,16 @@ from app.core.catalog import normalize_execution_mode
 from app.core.config import config as app_config
 from app.core.database import get_db, session_scope
 from app.core.connection_context import ConnectionContext, set_connection_context
+from app.core.expert_catalog import resolve_expert_context
+from app.core.session_context import (
+    clear_session_expert,
+    clear_session_skill,
+    get_session_context,
+    set_session_expert,
+    set_session_skill,
+)
+from app.core.slash_parser import parse_slash_command
+from app.skills.registry import skill_registry
 from app.memory.manager import memory_manager
 from app.schemas.user_context import UserContext
 from app.services.auth import AUTH_ENABLED, get_current_user, verify_token
@@ -81,14 +91,73 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 continue
 
             user_input = data.get("input", "")
-            if not user_input.strip():
+            if not user_input.strip() and not data.get("clear_skill") and not data.get("clear_expert"):
                 await websocket.send_json({
                     "type": "error",
                     "data": {"message": "Empty input"},
                 })
                 continue
 
-            skill_name = data.get("skill") or None
+            session_ctx = get_session_context(session_id)
+
+            # Expert summon / clear
+            if data.get("clear_expert"):
+                clear_session_expert(session_id)
+                session_ctx.active_expert_id = None
+            expert_id = data.get("expert_id") or session_ctx.active_expert_id
+            if data.get("expert_id"):
+                set_session_expert(session_id, data.get("expert_id"))
+                expert_id = data.get("expert_id")
+
+            # Skill clear
+            if data.get("clear_skill"):
+                clear_session_skill(session_id)
+
+            # Parse slash command from message (frontend may pre-parse; backend validates)
+            parsed_skill, parsed_message = parse_slash_command(user_input)
+            user_message = parsed_message if parsed_skill else user_input
+
+            skill_name = data.get("skill")
+            skill_invocation = data.get("skill_invocation")
+
+            if parsed_skill:
+                if not skill_registry.get(parsed_skill):
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": f"未找到技能 `{parsed_skill}`"},
+                    })
+                    continue
+                skill_name = parsed_skill
+                skill_invocation = "slash"
+                user_input = user_message
+                if not user_input.strip():
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": "请在 `/技能名` 后补充任务描述"},
+                    })
+                    continue
+
+            expert_ctx = resolve_expert_context(
+                expert_id,
+                skill_override=skill_name,
+                mode_override=data.get("mode"),
+            )
+
+            if skill_name is None and expert_ctx.get("skill"):
+                skill_name = expert_ctx["skill"]
+                if not skill_invocation and expert_id:
+                    skill_invocation = "expert"
+
+            if skill_name:
+                set_session_skill(session_id, skill_name, skill_invocation)
+            elif session_ctx.active_skill and not data.get("clear_skill"):
+                skill_name = session_ctx.active_skill
+                skill_invocation = skill_invocation or session_ctx.skill_invocation
+
+            mode = normalize_execution_mode(expert_ctx.get("mode") or data.get("mode") or "adaptive")
+
+            system_prompt = expert_ctx.get("system_prompt")
+
             set_connection_context(
                 ConnectionContext(
                     user_id=user.user_id,
@@ -104,14 +173,15 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 user_id=user.user_id if user.user_id else None,
                 user_type=user.user_type,
                 active_skill=skill_name,
+                expert_id=expert_id,
+                skill_invocation=skill_invocation,
                 provider=provider,
                 model=data.get("model"),
                 temperature=data.get("temperature", 0.7),
                 streaming=True,
-                system_prompt=None,
+                system_prompt=system_prompt,
             )
 
-            mode = normalize_execution_mode(data.get("mode", "adaptive"))
             timeout = app_config.agent.timeout_seconds
 
             try:

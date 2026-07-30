@@ -46,11 +46,11 @@
         </router-link>
         <router-link to="/skills" class="nav-item" active-class="active">
           <el-icon class="nav-icon-el"><Aim /></el-icon>
-          <span>技能编排</span>
+          <span>技能库</span>
         </router-link>
-        <router-link to="/agents" class="nav-item" active-class="active">
+        <router-link to="/experts" class="nav-item" active-class="active">
           <el-icon class="nav-icon-el"><User /></el-icon>
-          <span>智能体档案</span>
+          <span>专家中心</span>
         </router-link>
         <router-link to="/knowledge" class="nav-item" active-class="active">
           <el-icon class="nav-icon-el"><Collection /></el-icon>

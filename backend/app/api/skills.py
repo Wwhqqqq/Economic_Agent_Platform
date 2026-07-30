@@ -7,8 +7,30 @@ from app.models.settings import SkillExecuteRequest
 from app.skills.executor import SkillExecutor
 from app.skills.registry import skill_registry
 from app.core.catalog import enrich_skill, CATEGORY_LABELS
+from app.skills.registry import skill_registry
 
 router = APIRouter(prefix="/api/skills", tags=["skills"])
+
+
+def _skill_invocable_item(skill_dict: dict) -> dict:
+    enriched = enrich_skill(skill_dict)
+    name = enriched.get("name", "")
+    return {
+        "name": name,
+        "display_name": enriched.get("display_name", name),
+        "slash_command": f"/{name}",
+        "description": enriched.get("description", ""),
+        "category_label": enriched.get("category_label", ""),
+        "user_invocable": True,
+        "installed": True,
+    }
+
+
+@router.get("/invocable")
+async def list_invocable_skills():
+    """Skills available in chat slash `/` menu."""
+    raw = skill_registry.list_all()
+    return {"skills": [_skill_invocable_item(s) for s in raw]}
 
 
 @router.get("")

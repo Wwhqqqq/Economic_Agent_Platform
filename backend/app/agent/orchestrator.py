@@ -106,6 +106,7 @@ class AgentOrchestrator:
                 "session_id": config.session_id,
                 "provider": config.provider,
                 "active_skill": active_skill.name if active_skill else None,
+                "expert_id": config.expert_id,
             },
         )
 

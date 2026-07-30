@@ -55,6 +55,8 @@ class AgentConfig:
     user_id: int | None = None
     user_type: str = "regular"
     active_skill: str | None = None
+    expert_id: str | None = None
+    skill_invocation: str | None = None
     streaming: bool = True
     system_prompt: str = None
 

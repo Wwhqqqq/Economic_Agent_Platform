@@ -79,6 +79,10 @@ export class ChatWebSocket {
   async send(input: string, options: {
     mode?: string
     skill?: string | null
+    expert_id?: string | null
+    skill_invocation?: 'slash' | 'expert' | null
+    clear_skill?: boolean
+    clear_expert?: boolean
     provider?: string
     model?: string | null
     temperature?: number
@@ -96,15 +100,21 @@ export class ChatWebSocket {
       return
     }
 
-    this.ws.send(JSON.stringify({
+    const payload: Record<string, unknown> = {
       type: 'message',
       input,
       mode: options.mode || 'adaptive',
       skill: options.skill,
       provider: options.provider || 'deepseek',
-      ...(options.model ? { model: options.model } : {}),
       temperature: options.temperature || 0.7,
-    }))
+    }
+    if (options.expert_id) payload.expert_id = options.expert_id
+    if (options.skill_invocation) payload.skill_invocation = options.skill_invocation
+    if (options.clear_skill) payload.clear_skill = true
+    if (options.clear_expert) payload.clear_expert = true
+    if (options.model) payload.model = options.model
+
+    this.ws.send(JSON.stringify(payload))
   }
 
   on(event: string, callback: EventCallback) {

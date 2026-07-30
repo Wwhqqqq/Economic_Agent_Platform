@@ -188,7 +188,14 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendMessage(
     content: string,
-    options: { mode?: string; skill?: string | null; provider?: string; model?: string | null } = {}
+    options: {
+      mode?: string
+      skill?: string | null
+      expert_id?: string | null
+      skill_invocation?: 'slash' | 'expert' | null
+      provider?: string
+      model?: string | null
+    } = {}
   ) {
     if (!content.trim()) return
 

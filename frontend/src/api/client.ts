@@ -100,13 +100,13 @@ export async function fetchSkills() {
   return data
 }
 
-export async function activateSkill(name: string) {
-  const { data } = await api.post(`/skills/${name}/activate`)
+export async function fetchInvocableSkills() {
+  const { data } = await api.get('/skills/invocable')
   return data
 }
 
-export async function deactivateSkill() {
-  const { data } = await api.post('/skills/deactivate')
+export async function fetchExperts() {
+  const { data } = await api.get('/experts')
   return data
 }
 

@@ -15,62 +15,19 @@
           {{ authStore.isMember ? '会员专享高级编排与技能已解锁' : '普通用户模式 · 升级会员解锁更多能力' }}
         </p>
       </div>
-      <div class="header-right">
-        <div class="control-group">
-          <label>执行模式</label>
-          <el-select v-model="settingsStore.selectedMode" size="small" class="control-select">
-            <el-option
-              v-for="m in platformStore.executionModes"
-              :key="m.key"
-              :label="m.short_name"
-              :value="m.key"
-            />
-          </el-select>
-        </div>
-        <div class="control-group">
-          <label>模型</label>
-          <el-select v-model="settingsStore.selectedProvider" size="small" class="control-select">
-            <el-option
-              v-for="p in providerOptions"
-              :key="p.name"
-              :label="providerLabel(p.name)"
-              :value="p.name"
-            />
-          </el-select>
-        </div>
-        <div class="control-group">
-          <label>技能</label>
-          <el-select
-            v-model="settingsStore.activeSkill"
-            size="small"
-            class="control-select"
-            clearable
-            placeholder="未启用"
-            @change="onSkillChange"
-          >
-            <el-option
-              v-for="s in skillOptions"
-              :key="s.name"
-              :label="s.display_name"
-              :value="s.name"
-            />
-          </el-select>
-        </div>
-        <button class="ui-btn-ghost" @click="chatStore.clearChat()">清空当前</button>
-      </div>
     </header>
 
-    <div v-if="currentMode" class="mode-banner">
-      <el-icon><Lightning /></el-icon>
-      <strong>{{ currentMode.short_name }}</strong>
-      <span>{{ currentMode.tagline }}</span>
+    <div v-if="settingsStore.activeExpertName" class="context-banner">
+      <el-icon><User /></el-icon>
+      <strong>{{ settingsStore.activeExpertName }}</strong>
+      <span>已召唤，请描述您的任务</span>
     </div>
 
     <div class="chat-messages" ref="messagesContainer">
       <div v-if="chatStore.messages.length === 0" class="empty-wrap">
         <EmptyState
           :title="`${platformStore.platformName}`"
-          description="选择执行模式与业务技能，开始您的智能体对话"
+          description="输入 / 召唤技能，或从专家中心召唤领域专家"
         >
           <template #icon>
             <div class="hero-icon">
@@ -78,17 +35,6 @@
             </div>
           </template>
           <template #actions>
-            <div class="mode-cards">
-              <div
-                v-for="m in platformStore.executionModes"
-                :key="m.key"
-                :class="['mode-card', { active: settingsStore.selectedMode === m.key }]"
-                @click="settingsStore.selectedMode = m.key"
-              >
-                <div class="mode-card-title">{{ m.short_name }}</div>
-                <div class="mode-card-desc">{{ m.tagline }}</div>
-              </div>
-            </div>
             <span class="qa-label">快捷场景</span>
             <div class="quick-row">
               <QuickChip :icon="DataAnalysis" label="财务审阅分析" @click="quickAction('analyze')" />
@@ -179,31 +125,76 @@
     </div>
 
     <div class="chat-input-area">
-      <div class="input-wrapper">
-        <textarea
-          v-model="inputText"
-          @keydown="handleKeydown"
-          placeholder="输入您的问题或任务描述..."
-          :disabled="chatStore.isLoading"
-          rows="1"
-        ></textarea>
-        <button
-          class="btn-send"
-          @click="sendMessage"
-          :disabled="!inputText.trim() || chatStore.isLoading"
-        >
-          <el-icon><Promotion /></el-icon>
-        </button>
+      <div class="composer-bar">
+        <div class="mode-select-wrap">
+          <el-select
+            v-model="selectedMode"
+            size="small"
+            class="mode-select"
+            popper-class="mode-select-popper"
+          >
+            <el-option
+              v-for="m in executionModeOptions"
+              :key="m.value"
+              :label="m.label"
+              :value="m.value"
+            >
+              <div class="mode-option">
+                <span class="mode-option-label">{{ m.label }}</span>
+                <span class="mode-option-desc">{{ m.desc }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </div>
       </div>
-      <div class="input-hint">Enter 发送 · Shift+Enter 换行</div>
+      <div v-if="settingsStore.activeExpertName || settingsStore.activeSkill" class="context-chips">
+        <span v-if="settingsStore.activeExpertName" class="ctx-chip expert">
+          {{ settingsStore.activeExpertName }}
+          <button type="button" class="chip-x" @click="clearExpert">×</button>
+        </span>
+        <span v-if="settingsStore.activeSkill" class="ctx-chip skill">
+          {{ settingsStore.activeSkillLabel || settingsStore.activeSkill }}
+          <button type="button" class="chip-x" @click="clearSkill">×</button>
+        </span>
+      </div>
+      <div class="input-shell">
+        <SlashSkillMenu
+          ref="slashMenuRef"
+          :visible="slashMenuVisible"
+          :query="slashQuery"
+          :skills="invocableSkills"
+          @select="onSlashSelect"
+          @close="slashMenuVisible = false"
+        />
+        <div class="input-wrapper">
+          <textarea
+            ref="textareaRef"
+            v-model="inputText"
+            @keydown="handleKeydown"
+            @input="onInputChange"
+            :placeholder="inputPlaceholder"
+            :disabled="chatStore.isLoading"
+            rows="1"
+          ></textarea>
+          <button
+            class="btn-send"
+            @click="sendMessage"
+            :disabled="!canSend || chatStore.isLoading"
+          >
+            <el-icon><Promotion /></el-icon>
+          </button>
+        </div>
+      </div>
+      <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 输入 <code>/</code> 召唤技能</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 import {
-  Lightning,
   Tools,
   Loading,
   Promotion,
@@ -221,27 +212,51 @@ import { useChatStore } from '../stores/chat'
 import { useSettingsStore } from '../stores/settings'
 import { usePlatformStore } from '../stores/platform'
 import { useAuthStore } from '../stores/auth'
-import { activateSkill, deactivateSkill, fetchSkills, fetchLLMConfig } from '../api/client'
-import { toolLabel, providerLabel, stepLabel } from '../utils/displayLabels'
+import { fetchExperts, fetchInvocableSkills, fetchLLMConfig } from '../api/client'
+import { toolLabel, stepLabel } from '../utils/displayLabels'
+import { parseSlashCommand, slashQueryFromInput } from '../utils/slashCommand'
 import MarkdownIt from 'markdown-it'
 import EmptyState from '../components/ui/EmptyState.vue'
 import QuickChip from '../components/ui/QuickChip.vue'
 import MembershipBadge from '../components/ui/MembershipBadge.vue'
+import SlashSkillMenu, { type InvocableSkill } from '../components/chat/SlashSkillMenu.vue'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
+const { selectedMode } = storeToRefs(settingsStore)
 const platformStore = usePlatformStore()
-const skillOptions = ref<any[]>([])
-const providerOptions = ref<any[]>([])
 
-const currentMode = computed(() =>
-  platformStore.executionModes.find(m => m.key === settingsStore.selectedMode)
-)
+const invocableSkills = ref<InvocableSkill[]>([])
+
+const executionModeOptions = [
+  { label: 'Auto', value: 'adaptive', desc: '自动模式' },
+  { label: 'Medium', value: 'reasoning_action', desc: '推理闭环' },
+  { label: 'Plan', value: 'task_orchestration', desc: '任务编排' },
+]
+
+const slashMenuVisible = ref(false)
+const slashMenuRef = ref<InstanceType<typeof SlashSkillMenu> | null>(null)
+const textareaRef = ref<HTMLTextAreaElement>()
 
 const inputText = ref('')
 const scrollAnchor = ref<HTMLElement>()
+
+const slashQuery = computed(() => slashQueryFromInput(inputText.value))
+
+const inputPlaceholder = computed(() =>
+  settingsStore.activeExpertName
+    ? `向${settingsStore.activeExpertName}描述您的任务…`
+    : '输入您的问题，或 / 召唤技能…'
+)
+
+const canSend = computed(() => {
+  const { skill, message } = parseSlashCommand(inputText.value)
+  if (skill) return message.trim().length > 0
+  return inputText.value.trim().length > 0
+})
 
 const md = new MarkdownIt({ breaks: true, linkify: true })
 
@@ -266,53 +281,117 @@ watch(
 onMounted(async () => {
   await platformStore.load()
   try {
-    const data = await fetchSkills()
-    skillOptions.value = data.skills || []
-  } catch (e) { console.error(e) }
-  try {
     const llm = await fetchLLMConfig()
-    providerOptions.value = llm.providers || []
     if (llm.default_provider) settingsStore.selectedProvider = llm.default_provider
-    const current = providerOptions.value.find(p => p.name === settingsStore.selectedProvider)
+    const current = (llm.providers || []).find((p: { name: string }) => p.name === settingsStore.selectedProvider)
     if (current?.model) settingsStore.selectedModel = current.model
   } catch (e) { console.error(e) }
+  try {
+    const data = await fetchInvocableSkills()
+    invocableSkills.value = data.skills || []
+  } catch (e) { console.error(e) }
+  await applyRouteSummon()
 })
 
+watch(() => route.query, applyRouteSummon)
+
+async function applyRouteSummon() {
+  const summonId = route.query.summon as string | undefined
+  if (!summonId) return
+  try {
+    const data = await fetchExperts()
+    const all = [...(data.experts || []), ...(data.teams || [])]
+    const profile = all.find((p: any) => p.id === summonId)
+    if (profile) settingsStore.summonExpert(profile)
+  } catch (e) { console.error(e) }
+  const prompt = route.query.prompt as string | undefined
+  if (prompt) inputText.value = prompt
+}
+
+function onInputChange() {
+  slashMenuVisible.value = inputText.value.startsWith('/')
+}
+
+function onSlashSelect(skill: InvocableSkill) {
+  settingsStore.setActiveSkill(skill.name, skill.display_name, 'slash')
+  inputText.value = `${skill.slash_command} `
+  slashMenuVisible.value = false
+  nextTick(() => textareaRef.value?.focus())
+}
+
+function applySlash(name: string) {
+  const skill = invocableSkills.value.find(s => s.name === name)
+  settingsStore.setActiveSkill(name, skill?.display_name || name, 'slash')
+  inputText.value = `/${name} `
+  textareaRef.value?.focus()
+}
+
+function clearSkill() {
+  settingsStore.clearSkill()
+}
+
+function clearExpert() {
+  settingsStore.clearExpert()
+}
+
 function sendMessage() {
-  if (!inputText.value.trim() || chatStore.isLoading) return
-  chatStore.sendMessage(inputText.value, {
-    mode: settingsStore.selectedMode,
-    skill: settingsStore.activeSkill,
+  if (!canSend.value || chatStore.isLoading) return
+
+  const parsed = parseSlashCommand(inputText.value)
+  let message = inputText.value
+  let skill = settingsStore.activeSkill
+  let skillInvocation = settingsStore.skillInvocationSource
+
+  if (parsed.skill) {
+    if (!parsed.message.trim()) return
+    message = parsed.message
+    skill = parsed.skill
+    skillInvocation = 'slash'
+    const meta = invocableSkills.value.find(s => s.name === parsed.skill)
+    settingsStore.setActiveSkill(parsed.skill, meta?.display_name || parsed.skill, 'slash')
+  }
+
+  chatStore.sendMessage(message, {
+    mode: selectedMode.value,
+    skill,
+    expert_id: settingsStore.activeExpertId,
+    skill_invocation: skillInvocation,
     provider: settingsStore.selectedProvider,
     model: settingsStore.selectedModel || null,
   })
   inputText.value = ''
+  slashMenuVisible.value = false
 }
 
 function handleKeydown(e: KeyboardEvent) {
+  if (slashMenuVisible.value && slashMenuRef.value) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); slashMenuRef.value.move(1); return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); slashMenuRef.value.move(-1); return }
+    if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && slashQuery.value && !canSend.value)) {
+      e.preventDefault()
+      slashMenuRef.value.confirm()
+      return
+    }
+    if (e.key === 'Escape') { slashMenuVisible.value = false; return }
+  }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     sendMessage()
   }
 }
 
-async function onSkillChange() {
-  if (settingsStore.activeSkill) {
-    await activateSkill(settingsStore.activeSkill)
-  } else {
-    await deactivateSkill()
-  }
-}
-
 function quickAction(type: string) {
   switch (type) {
     case 'analyze':
-      settingsStore.activeSkill = 'financial_audit'
-      activateSkill('financial_audit').catch(console.error)
-      inputText.value = '请分析以下财务数据并给出审阅意见'
+      applySlash('financial_audit')
+      inputText.value = '/financial_audit 请分析以下财务数据并给出审阅意见'
       break
     case 'debate':
-      settingsStore.selectedMode = 'collaborative_decision'
+      settingsStore.summonExpert({
+        id: 'finance_review_board',
+        name: '财务评审委员会',
+        equipped_skills: [],
+      })
       inputText.value = '请对目标公司进行多视角协同决策分析'
       break
     case 'search':
@@ -363,7 +442,7 @@ function quickAction(type: string) {
   flex-wrap: wrap;
 }
 
-.mode-banner {
+.context-banner {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -375,46 +454,90 @@ function quickAction(type: string) {
   flex-shrink: 0;
 }
 
-.mode-card {
+.context-banner strong { color: var(--color-primary); }
+
+.composer-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mode-select-wrap {
+  display: inline-flex;
+}
+
+.mode-select {
+  width: 108px;
+}
+
+.mode-select :deep(.el-select__wrapper) {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.08);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.mode-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.mode-option-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mode-option-desc {
+  font-size: 11px;
+  color: var(--ui-text-secondary);
+}
+
+.context-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ctx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(238, 242, 255, 0.95);
+  border: 1px solid rgba(199, 210, 254, 0.5);
+  color: var(--color-primary);
+}
+
+.ctx-chip.expert { color: #4338ca; }
+.chip-x {
+  border: none;
+  background: transparent;
   cursor: pointer;
-  padding: 14px 16px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(199, 210, 254, 0.45);
-  border-radius: 12px;
-  transition: all 0.22s ease;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.7;
+  padding: 0;
+}
+.chip-x:hover { opacity: 1; }
+
+.input-shell {
   position: relative;
-  overflow: hidden;
 }
 
-.mode-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gradient-accent);
-  opacity: 0;
-  transition: opacity 0.2s ease;
+.input-hint code {
+  font-size: 11px;
+  background: rgba(238, 242, 255, 0.8);
+  padding: 1px 4px;
+  border-radius: 4px;
 }
-
-.mode-card:hover {
-  border-color: rgba(129, 140, 248, 0.55);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12);
-}
-
-.mode-card:hover::before { opacity: 0.5; }
-
-.mode-card.active {
-  border-color: rgba(99, 102, 241, 0.55);
-  background: linear-gradient(145deg, rgba(238,242,255,0.95), rgba(236,254,255,0.7));
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
-}
-
-.mode-card.active::before { opacity: 1; }
 
 .hero-icon {
   width: 72px;
@@ -538,14 +661,6 @@ function quickAction(type: string) {
 
 .header-left { min-width: 0; }
 .chat-subtitle { font-size: 13px; color: var(--ui-text-secondary); margin: 4px 0 0; }
-.mode-banner strong { color: var(--color-primary); }
-.header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.control-group { display: flex; align-items: center; gap: 6px; }
-.control-group label { font-size: 12px; color: var(--ui-text-secondary); white-space: nowrap; }
-.control-select { width: 120px; }
-.mode-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 640px; width: 100%; }
-.mode-card-title { font-size: 13px; font-weight: 600; color: var(--ui-text-primary); margin-bottom: 4px; }
-.mode-card-desc { font-size: 11px; color: var(--ui-text-secondary); }
 .qa-label { display: block; width: 100%; font-size: 12px; color: var(--color-violet); margin: 16px 0 8px; font-weight: 600; }
 .quick-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .empty-wrap { height: 100%; display: flex; align-items: center; justify-content: center; }
