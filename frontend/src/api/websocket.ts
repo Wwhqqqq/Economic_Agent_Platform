@@ -82,7 +82,7 @@ export class ChatWebSocket {
       mode?: string
       skill?: string | null
       expert_id?: string | null
-      skill_invocation?: 'slash' | 'expert' | null
+      skill_invocation?: 'slash' | 'expert' | 'explicit' | null
       clear_skill?: boolean
       clear_expert?: boolean
       provider?: string

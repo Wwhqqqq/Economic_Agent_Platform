@@ -207,7 +207,7 @@ export const useChatStore = defineStore('chat', () => {
       mode?: string
       skill?: string | null
       expert_id?: string | null
-      skill_invocation?: 'slash' | 'expert' | null
+      skill_invocation?: 'slash' | 'expert' | 'explicit' | null
       provider?: string
       model?: string | null
       attachments?: Array<Record<string, unknown>>
