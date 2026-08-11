@@ -25,6 +25,7 @@ from app.services.auth import (
 from app.services.audit_log import log_action
 from app.services.email_service import send_verification_email
 from app.services.verification import get_cooldown_remaining, issue_verification_code, verify_and_consume_code
+from app.services.membership_service import apply_registration_trial
 from app.schemas.user_context import UserContext
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -159,6 +160,8 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     try:
         user = await register_user(db, username, password, email)
+        is_trial = await apply_registration_trial(db, user)
+        await db.commit()
         token = create_token(user)
         log_action("auth.register", username)
         ctx = user_to_context(user)
@@ -168,6 +171,10 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
             "user_id": ctx.user_id,
             "username": ctx.username,
             "user_type": ctx.user_type,
+            "membership_expires_at": (
+                ctx.membership_expires_at.isoformat() if ctx.membership_expires_at else None
+            ),
+            "is_trial": is_trial,
         }
     except ValueError as exc:
         err = str(exc)

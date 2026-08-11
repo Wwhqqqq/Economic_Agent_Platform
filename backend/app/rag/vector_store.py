@@ -74,7 +74,9 @@ class VectorStoreRetriever:
     ) -> list[Document]:
         where = metadata_filter
         if user_id is not None and where is None:
-            where = build_retrieval_filter(user_id, user_type)
+            where = build_retrieval_filter(
+                user_id, user_type, is_member=(user_type == "member")
+            )
 
         results = self._chroma.query(
             collection_name=KNOWLEDGE_COLLECTION,
@@ -126,7 +128,9 @@ class VectorStoreRetriever:
     def count(self, user_id: int | None = None, user_type: str = "regular") -> int:
         if user_id is None:
             return self._chroma.count(KNOWLEDGE_COLLECTION)
-        where = build_retrieval_filter(user_id, user_type)
+        where = build_retrieval_filter(
+            user_id, user_type, is_member=(user_type == "member")
+        )
         return self._chroma.count_where(KNOWLEDGE_COLLECTION, where)
 
     def delete(self, doc_id: str) -> None:
@@ -144,7 +148,11 @@ class VectorStoreRetriever:
         user_id: int | None = None,
         user_type: str = "regular",
     ) -> list[dict]:
-        where = build_retrieval_filter(user_id, user_type) if user_id is not None else None
+        where = (
+            build_retrieval_filter(user_id, user_type, is_member=(user_type == "member"))
+            if user_id is not None
+            else None
+        )
         raw = self._chroma.get_all(KNOWLEDGE_COLLECTION, limit=limit, offset=offset, where=where)
         docs = []
         ids = raw.get("ids") or []

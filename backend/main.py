@@ -30,6 +30,7 @@ from app.api.audit import router as audit_router
 from app.api.experts import router as experts_router
 from app.api.session_context import router as session_context_router
 from app.api.media import router as media_router
+from app.api.membership import router as membership_router
 
 
 # ---- 自动注册所有内置工具 ----
@@ -108,6 +109,7 @@ app.include_router(audit_router)
 app.include_router(experts_router)
 app.include_router(session_context_router)
 app.include_router(media_router)
+app.include_router(membership_router)
 
 
 @app.on_event("startup")

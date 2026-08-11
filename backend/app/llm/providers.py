@@ -56,10 +56,19 @@ def provider_supports_vision(provider: str, model: str | None = None) -> bool:
 def pick_vision_provider(preferred: str | None = None) -> str | None:
     from app.core.config import config
 
-    order = []
-    if preferred and provider_supports_vision(preferred):
+    def _has_api_key(name: str) -> bool:
+        cfg = config.providers.get(name)
+        return bool(cfg and (cfg.api_key or "").strip())
+
+    order: list[str] = []
+    if preferred and provider_supports_vision(preferred) and _has_api_key(preferred):
         order.append(preferred)
     for name in ("openai", "anthropic", "custom"):
-        if name not in order and name in config.providers and provider_supports_vision(name):
+        if (
+            name not in order
+            and name in config.providers
+            and provider_supports_vision(name)
+            and _has_api_key(name)
+        ):
             order.append(name)
     return order[0] if order else None

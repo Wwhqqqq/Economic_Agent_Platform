@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "P1-1 train count",
+      "passed": true,
+      "detail": "train=3800"
+    },
+    {
+      "name": "P1-1 sources nonzero",
+      "passed": true,
+      "detail": "nonzero_sources=8, extracted={'G1': 400, 'G2': 400, 'G3': 300, 'S1': 8000, 'S2': 1999, 'S3': 4804, 'S4': 1090, 'S7': 1500}"
+    },
+    {
+      "name": "P1-3 cflue test leak",
+      "passed": true,
+      "detail": "cflue_test_in_train=0"
+    },
+    {
+      "name": "alpaca format",
+      "passed": true,
+      "detail": "bad_rows=0"
+    },
+    {
+      "name": "non-empty output",
+      "passed": true,
+      "detail": "empty_output=0"
+    },
+    {
+      "name": "P1-2 zh ratio",
+      "passed": true,
+      "detail": "low_zh_rows=0/3800"
+    },
+    {
+      "name": "P1-2 category coverage (full train)",
+      "passed": true,
+      "detail": "full_train_categories=['accounting_std', 'audit', 'calculation', 'other', 'rag', 'tool'], missing=set()"
+    },
+    {
+      "name": "P1-2 category coverage (random sample)",
+      "passed": true,
+      "detail": "sample_categories={'audit': 43, 'other': 2, 'accounting_std': 1, 'tool': 2, 'rag': 2}, missing=set()"
+    }
+  ],
+  "data_dir": "e:\\Desktop\\agent-platform\\agent-platform\\ModelSelection\\implementation\\datasets\\accounting_sft_mvp",
+  "summary": {
+    "train": 3800,
+    "eval": 200,
+    "manifest_profile": "mvp",
+    "extracted_by_source": {
+      "G1": 400,
+      "G2": 400,
+      "G3": 300,
+      "S1": 8000,
+      "S2": 1999,
+      "S3": 4804,
+      "S4": 1090,
+      "S7": 1500
+    },
+    "mix_ratio_prefix": {
+      "S7": 842,
+      "G3": 231,
+      "S1": 1156,
+      "S3": 712,
+      "G2": 220,
+      "G1": 231,
+      "S2": 271,
+      "S4": 137
+    },
+    "sample_inspection_categories": {
+      "audit": 43,
+      "other": 2,
+      "accounting_std": 1,
+      "tool": 2,
+      "rag": 2
+    },
+    "full_train_categories": [
+      "accounting_std",
+      "audit",
+      "calculation",
+      "other",
+      "rag",
+      "tool"
+    ]
+  },
+  "sample_preview_path": "e:\\Desktop\\agent-platform\\agent-platform\\ModelSelection\\implementation\\datasets\\accounting_sft_mvp\\sample_preview.json"
+}

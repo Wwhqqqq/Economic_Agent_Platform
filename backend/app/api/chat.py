@@ -26,8 +26,14 @@ from app.core.slash_parser import parse_slash_command
 from app.skills.registry import skill_registry
 from app.memory.manager import memory_manager
 from app.schemas.user_context import UserContext
-from app.services.auth import AUTH_ENABLED, get_current_user, verify_token
+from app.services.auth import AUTH_ENABLED, get_current_user, verify_token, get_user_by_id, user_to_context
+from app.services.attachment_service import resolve_chat_attachments
 from app.services.chat_session_service import chat_session_service
+from app.services.membership_gate import (
+    MembershipRequiredError,
+    assert_membership_for_resolved,
+)
+from app.services.quota_service import QuotaExceededError, check_quota
 from langchain_core.messages import AIMessage, HumanMessage
 
 router = APIRouter()
@@ -61,12 +67,11 @@ async def _ws_authenticate(websocket: WebSocket, session_id: str) -> UserContext
         if not session:
             await websocket.close(code=4403, reason="Forbidden")
             raise WebSocketDisconnect(code=4403)
-
-    return UserContext(
-        user_id=user_id,
-        username=payload.get("username", ""),
-        user_type=payload.get("user_type", "regular"),
-    )
+        db_user = await get_user_by_id(db, user_id)
+        if not db_user or db_user.status != "active":
+            await websocket.close(code=4401, reason="Unauthorized")
+            raise WebSocketDisconnect(code=4401)
+        return user_to_context(db_user)
 
 
 @router.websocket("/ws/chat/{session_id}")
@@ -129,7 +134,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             parsed_skill, parsed_message = parse_slash_command(user_input)
             user_message = parsed_message if parsed_skill else user_input
             if not user_message.strip() and attachments:
-                user_message = "请分析附件图片。"
+                user_message = "请分析附件。"
 
             if parsed_skill:
                 if not skill_registry.get(parsed_skill):
@@ -164,6 +169,34 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
 
             mode = normalize_execution_mode(resolved.mode)
 
+            try:
+                assert_membership_for_resolved(
+                    user,
+                    mode=mode,
+                    skill=resolved.skill or parsed_skill,
+                    expert_id=resolved.expert_id or data.get("expert_id"),
+                    requested_mode=data.get("mode"),
+                )
+            except MembershipRequiredError as exc:
+                await websocket.send_json({
+                    "type": "error",
+                    "code": "MEMBERSHIP_REQUIRED",
+                    "data": {"message": exc.message, "upgrade_url": "/membership"},
+                })
+                continue
+
+            if user.user_id:
+                async with session_scope() as db:
+                    try:
+                        await check_quota(db, "daily_message", user.user_id, user.user_type)
+                    except QuotaExceededError as exc:
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": "QUOTA_EXCEEDED",
+                            "data": {"message": exc.message, "quota": exc.quota},
+                        })
+                        continue
+
             set_connection_context(
                 ConnectionContext(
                     user_id=user.user_id,
@@ -174,6 +207,17 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             )
 
             provider = data.get("provider") or app_config.agent.default_provider
+            resolved_attachments = attachments if isinstance(attachments, list) else []
+            if resolved_attachments and user.user_id:
+                async with session_scope() as db:
+                    resolved_attachments = await resolve_chat_attachments(
+                        db, user.user_id, resolved_attachments
+                    )
+
+            max_iterations = app_config.agent.max_iterations
+            if resolved_attachments:
+                max_iterations = min(max_iterations, 5)
+
             agent_config = AgentConfig(
                 session_id=session_id,
                 user_id=user.user_id if user.user_id else None,
@@ -190,14 +234,15 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                 engine=resolved.engine,
                 team_protocol=resolved.team_protocol,
                 team_class=resolved.team_class,
-                attachments=attachments if isinstance(attachments, list) else [],
+                attachments=resolved_attachments,
+                max_iterations=max_iterations,
             )
 
             timeout = app_config.agent.timeout_seconds
 
             try:
                 async def _stream():
-                    async for event in orchestrator.stream(user_input, agent_config, mode):
+                    async for event in orchestrator.stream(user_input, agent_config, mode, user=user):
                         await websocket.send_json({
                             "type": event.type.value,
                             "data": event.data,
@@ -205,6 +250,12 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                         })
 
                 await asyncio.wait_for(_stream(), timeout=timeout)
+            except MembershipRequiredError as exc:
+                await websocket.send_json({
+                    "type": "error",
+                    "code": "MEMBERSHIP_REQUIRED",
+                    "data": {"message": exc.message, "upgrade_url": "/membership"},
+                })
             except asyncio.TimeoutError:
                 await websocket.send_json({
                     "type": "error",
@@ -248,6 +299,11 @@ async def create_session(
             "created_at": None,
             "note": "anonymous_mode",
         }
+    try:
+        await check_quota(db, "create_session", uid, user.user_type)
+    except QuotaExceededError as exc:
+        from app.services.quota_service import quota_http_exception
+        raise quota_http_exception(exc) from exc
     session = await chat_session_service.create_session(db, uid, req.title)
     return {
         "session_id": session.id,

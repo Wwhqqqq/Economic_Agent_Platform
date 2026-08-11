@@ -1,0 +1,17 @@
+# Phase 2 训练依赖（pip 走清华源；PyTorch 单独装 cu128）
+transformers>=4.46.0,<5.15
+datasets>=3.0.0,<5.1
+peft>=0.13.0,<0.21
+accelerate>=1.0.0,<1.15
+bitsandbytes>=0.45.0,<0.51
+trl>=0.12.0,<0.14
+sentencepiece
+protobuf
+tiktoken
+modelscope>=1.20.0
+huggingface_hub>=0.26.0
+pyyaml
+matplotlib
+scipy
+einops
+av

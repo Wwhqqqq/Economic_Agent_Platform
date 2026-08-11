@@ -1,16 +1,15 @@
 /**
  * Media upload API for chat attachments
  */
-
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('auth_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+import api from './client'
 
 export interface ChatAttachmentMeta {
   asset_id: string
   filename: string
   mime_type: string
+  kind?: 'image' | 'file'
+  file_path?: string
+  text_preview?: string
   image_class?: string
   ocr_text?: string
   ocr_quality?: number
@@ -21,17 +20,22 @@ export interface ChatAttachmentMeta {
   thumbnail_url?: string
 }
 
+function parseUploadError(err: unknown): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail[0]?.msg) return String(detail[0].msg)
+  return '文件上传失败'
+}
+
 export async function uploadChatAttachment(file: File): Promise<ChatAttachmentMeta> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch('/api/media/upload', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: form,
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || '图片上传失败')
+  try {
+    const { data } = await api.post<ChatAttachmentMeta>('/media/upload', form, {
+      timeout: 120000,
+    })
+    return data
+  } catch (err) {
+    throw new Error(parseUploadError(err))
   }
-  return res.json()
 }

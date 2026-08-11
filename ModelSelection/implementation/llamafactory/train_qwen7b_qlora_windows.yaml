@@ -1,0 +1,47 @@
+### model — Windows 路径（5080 16G）
+model_name_or_path: E:/models/Qwen2.5-7B-Instruct
+quantization_bit: 4
+template: qwen
+upcast_layernorm: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_target: all
+
+### dataset — Phase 1 recommended 产出
+dataset: accounting_sft
+cutoff_len: 2048
+max_samples: 100000
+overwrite_cache: true
+preprocessing_num_workers: 4
+
+### output
+output_dir: E:/models/qwen7b-accounting-lora
+logging_steps: 10
+save_steps: 200
+plot_loss: true
+overwrite_output_dir: true
+save_total_limit: 3
+
+### train — 11400 样本 × 2 epoch
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 1.0e-4
+num_train_epochs: 2
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: false
+fp16: true
+ddp_timeout: 180000000
+gradient_checkpointing: true
+dataloader_pin_memory: false
+
+### eval
+val_size: 0.05
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 200

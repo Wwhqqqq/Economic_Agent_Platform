@@ -200,5 +200,6 @@ export const useAuthStore = defineStore('auth', () => {
     updateProfile,
     setAvatarUrl,
     logout,
+    applyUserProfile,
   }
 })

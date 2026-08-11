@@ -124,6 +124,8 @@
       <div ref="scrollAnchor"></div>
     </div>
 
+    <UpgradePrompt ref="upgradePromptRef" />
+
     <div class="chat-input-area">
       <div class="composer-bar">
         <div class="mode-select-wrap">
@@ -134,7 +136,7 @@
             popper-class="mode-select-popper"
           >
             <el-option
-              v-for="m in executionModeOptions"
+              v-for="m in visibleModeOptions"
               :key="m.value"
               :label="m.label"
               :value="m.value"
@@ -157,7 +159,11 @@
           <button type="button" class="chip-x" @click="clearSkill">×</button>
         </span>
       </div>
-      <div class="input-shell">
+      <div
+        class="input-shell"
+        @dragover.prevent
+        @drop.prevent="onDropFiles"
+      >
         <AttachmentUpload
           ref="attachmentRef"
           :disabled="chatStore.isLoading"
@@ -172,6 +178,15 @@
           @close="slashMenuVisible = false"
         />
         <div class="input-wrapper">
+          <button
+            type="button"
+            class="btn-attach"
+            :disabled="chatStore.isLoading"
+            title="上传图片或文件"
+            @click="attachmentRef?.openPicker()"
+          >
+            <el-icon><Paperclip /></el-icon>
+          </button>
           <textarea
             ref="textareaRef"
             v-model="inputText"
@@ -185,12 +200,13 @@
             class="btn-send"
             @click="sendMessage"
             :disabled="!canSend || chatStore.isLoading"
+            :title="isUploadingAttachments ? '附件上传中…' : undefined"
           >
             <el-icon><Promotion /></el-icon>
           </button>
         </div>
       </div>
-      <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 输入 <code>/</code> 召唤技能 · 可拖入图片</div>
+      <div class="input-hint">Enter 发送 · Shift+Enter 换行 · 输入 <code>/</code> 召唤技能 · 可拖入图片或文件</div>
     </div>
   </div>
 </template>
@@ -203,6 +219,7 @@ import {
   Tools,
   Loading,
   Promotion,
+  Paperclip,
   ChatDotRound,
   User,
   Monitor,
@@ -223,6 +240,7 @@ import MarkdownIt from 'markdown-it'
 import EmptyState from '../components/ui/EmptyState.vue'
 import QuickChip from '../components/ui/QuickChip.vue'
 import MembershipBadge from '../components/ui/MembershipBadge.vue'
+import UpgradePrompt from '../components/ui/UpgradePrompt.vue'
 import SlashSkillMenu, { type InvocableSkill } from '../components/chat/SlashSkillMenu.vue'
 import AttachmentUpload, { type AttachmentItem } from '../components/chat/AttachmentUpload.vue'
 import { useSettingsStore } from '../stores/settings'
@@ -243,6 +261,16 @@ const executionModeOptions = [
   { label: 'Plan', value: 'task_orchestration', desc: '任务编排' },
 ]
 
+const visibleModeOptions = computed(() => {
+  if (authStore.isMember) return executionModeOptions
+  return executionModeOptions.filter(o => o.value === 'adaptive')
+})
+
+const upgradePromptRef = ref<InstanceType<typeof UpgradePrompt> | null>(null)
+
+const MEMBER_SKILLS = new Set(['financial_audit', 'data_visualization'])
+const MEMBER_EXPERTS = new Set(['finance_reviewer', 'finance_review_board'])
+
 const slashMenuVisible = ref(false)
 const slashMenuRef = ref<InstanceType<typeof SlashSkillMenu> | null>(null)
 const textareaRef = ref<HTMLTextAreaElement>()
@@ -261,10 +289,19 @@ const inputPlaceholder = computed(() =>
 const attachmentRef = ref<InstanceType<typeof AttachmentUpload> | null>(null)
 const pendingAttachments = ref<AttachmentItem[]>([])
 
+const readyAttachments = computed(() =>
+  pendingAttachments.value.filter(a => a.asset_id && !a.uploading)
+)
+
+const isUploadingAttachments = computed(() =>
+  pendingAttachments.value.some(a => a.uploading)
+)
+
 const canSend = computed(() => {
+  if (isUploadingAttachments.value) return false
   const { skill, message } = parseSlashCommand(inputText.value)
   if (skill) return message.trim().length > 0
-  return inputText.value.trim().length > 0 || pendingAttachments.value.length > 0
+  return inputText.value.trim().length > 0 || readyAttachments.value.length > 0
 })
 
 const md = new MarkdownIt({ breaks: true, linkify: true })
@@ -285,6 +322,26 @@ watch(() => chatStore.messages.length, scrollToBottom)
 watch(
   () => chatStore.messages.filter(m => m.isStreaming).map(m => m.content).join('\n'),
   scrollToBottom,
+)
+
+watch(
+  () => authStore.isMember,
+  (member) => {
+    if (!member && settingsStore.selectedMode !== 'adaptive') {
+      settingsStore.setMode('adaptive')
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => chatStore.membershipRequiredMessage,
+  (msg) => {
+    if (msg) {
+      upgradePromptRef.value?.open(msg)
+      chatStore.clearMembershipRequiredMessage()
+    }
+  },
 )
 
 onMounted(async () => {
@@ -332,6 +389,10 @@ function onSlashSelect(skill: InvocableSkill) {
 }
 
 function applySlash(name: string) {
+  if (MEMBER_SKILLS.has(name) && !authStore.isMember) {
+    upgradePromptRef.value?.open('该技能需开通会员')
+    return
+  }
   const skill = invocableSkills.value.find(s => s.name === name)
   settingsStore.setActiveSkill(name, skill?.display_name || name, 'slash')
   inputText.value = `/${name} `
@@ -350,6 +411,12 @@ async function clearExpert() {
 
 function onAttachmentsUpdate(items: AttachmentItem[]) {
   pendingAttachments.value = items
+}
+
+function onDropFiles(e: DragEvent) {
+  if (chatStore.isLoading) return
+  const files = e.dataTransfer?.files
+  if (files?.length) attachmentRef.value?.addFiles(files)
 }
 
 function sendMessage() {
@@ -376,14 +443,10 @@ function sendMessage() {
     skill_invocation: skillInvocation,
     provider: settingsStore.selectedProvider,
     model: settingsStore.selectedModel || null,
-    attachments: pendingAttachments.value.map(a => ({
+    attachments: readyAttachments.value.map(a => ({
       asset_id: a.asset_id,
-      url: a.data_url || a.url,
-      data_url: a.data_url,
-      ocr_text: a.ocr_text,
-      vlm_caption: a.vlm_caption,
-      caption: a.vlm_caption,
       filename: a.filename,
+      kind: a.kind,
     })),
   })
   inputText.value = ''
@@ -412,10 +475,18 @@ function handleKeydown(e: KeyboardEvent) {
 function quickAction(type: string) {
   switch (type) {
     case 'analyze':
+      if (!authStore.isMember) {
+        upgradePromptRef.value?.open('财务审计技能需开通会员')
+        return
+      }
       applySlash('financial_audit')
       inputText.value = '/financial_audit 请分析以下财务数据并给出审阅意见'
       break
     case 'debate':
+      if (!authStore.isMember) {
+        upgradePromptRef.value?.open('Multi-Agent 协同决策需开通会员')
+        return
+      }
       settingsStore.summonExpert({
         id: 'finance_review_board',
         name: '财务评审委员会',
@@ -650,6 +721,32 @@ function quickAction(type: string) {
 .input-wrapper:focus-within {
   border-color: rgba(99, 102, 241, 0.55);
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+}
+
+.btn-attach {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(199, 210, 254, 0.55);
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.btn-attach:hover:not(:disabled) {
+  background: rgba(238, 242, 255, 0.85);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.btn-attach:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .btn-send {

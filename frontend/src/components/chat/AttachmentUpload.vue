@@ -9,18 +9,23 @@
     <input
       ref="fileInputRef"
       type="file"
-      accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"
+      :accept="acceptTypes"
       multiple
       class="hidden-input"
       @change="onFileChange"
     />
-    <button type="button" class="attach-btn" :disabled="disabled" @click="fileInputRef?.click()">
-      <el-icon><Picture /></el-icon>
-      图片
-    </button>
     <div v-if="items.length" class="preview-row">
-      <div v-for="(item, i) in items" :key="item.asset_id || item.preview_url" class="preview-item">
-        <img :src="item.preview_url" :alt="item.filename" />
+      <div
+        v-for="(item, i) in items"
+        :key="item.asset_id || item.preview_url || item.filename + i"
+        class="preview-item"
+        :class="{ 'is-file': item.kind === 'file' }"
+      >
+        <img v-if="item.kind !== 'file' && item.preview_url" :src="item.preview_url" :alt="item.filename" />
+        <div v-else class="file-chip">
+          <el-icon><Document /></el-icon>
+          <span class="file-name">{{ item.filename }}</span>
+        </div>
         <button type="button" class="remove-btn" @click="remove(i)">×</button>
         <span v-if="item.uploading" class="upload-tag">上传中</span>
       </div>
@@ -30,13 +35,22 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Picture } from '@element-plus/icons-vue'
+import { Document } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { uploadChatAttachment, type ChatAttachmentMeta } from '../../api/media'
 
 export interface AttachmentItem extends ChatAttachmentMeta {
-  preview_url: string
+  preview_url?: string
   uploading?: boolean
 }
+
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'])
+const FILE_EXTS = new Set(['txt', 'md', 'csv', 'json', 'pdf', 'xlsx', 'xls', 'doc', 'docx', 'log'])
+
+const acceptTypes = [
+  'image/png,image/jpeg,image/webp,image/gif,image/bmp',
+  '.txt,.md,.csv,.json,.pdf,.xlsx,.xls,.doc,.docx,.log',
+].join(',')
 
 const props = defineProps<{
   disabled?: boolean
@@ -53,30 +67,65 @@ const fileInputRef = ref<HTMLInputElement>()
 
 const maxCount = props.maxCount ?? 4
 
-function emitUpdate() {
-  emit('update', items.value.filter(i => !i.uploading && i.asset_id))
+function fileExtension(name: string): string {
+  const parts = name.split('.')
+  return parts.length > 1 ? parts.pop()!.toLowerCase() : ''
 }
 
+function isAllowedFile(file: File): boolean {
+  const ext = fileExtension(file.name)
+  if (IMAGE_EXTS.has(ext) || FILE_EXTS.has(ext)) return true
+  if (file.type.startsWith('image/')) return true
+  return false
+}
+
+function isImageFile(file: File): boolean {
+  const ext = fileExtension(file.name)
+  if (IMAGE_EXTS.has(ext)) return true
+  return file.type.startsWith('image/')
+}
+
+function emitUpdate() {
+  emit('update', [...items.value])
+}
+
+const hasUploading = () => items.value.some(i => i.uploading)
+
 async function addFiles(files: FileList | File[]) {
-  const list = Array.from(files).filter(f => f.type.startsWith('image/'))
+  const list = Array.from(files).filter(isAllowedFile)
+  if (!list.length) {
+    ElMessage.warning('不支持的文件类型')
+    return
+  }
   for (const file of list) {
-    if (items.value.length >= maxCount) break
-    const preview_url = URL.createObjectURL(file)
+    if (items.value.length >= maxCount) {
+      ElMessage.warning(`最多上传 ${maxCount} 个附件`)
+      break
+    }
+    const isImage = isImageFile(file)
+    const preview_url = isImage ? URL.createObjectURL(file) : undefined
     const pending: AttachmentItem = {
       asset_id: '',
       filename: file.name,
-      mime_type: file.type,
+      mime_type: file.type || 'application/octet-stream',
+      kind: isImage ? 'image' : 'file',
       preview_url,
       uploading: true,
     }
     items.value.push(pending)
+    emitUpdate()
     try {
       const meta = await uploadChatAttachment(file)
-      Object.assign(pending, meta, { preview_url, uploading: false })
+      Object.assign(pending, meta, {
+        preview_url: isImage ? preview_url : undefined,
+        uploading: false,
+        kind: meta.kind || (isImage ? 'image' : 'file'),
+      })
+      ElMessage.success(`${file.name} 上传成功`)
     } catch (e) {
       items.value = items.value.filter(i => i !== pending)
-      URL.revokeObjectURL(preview_url)
-      console.error(e)
+      if (preview_url?.startsWith('blob:')) URL.revokeObjectURL(preview_url)
+      ElMessage.error(e instanceof Error ? e.message : '上传失败')
     }
   }
   emitUpdate()
@@ -90,6 +139,7 @@ function onFileChange(e: Event) {
 
 function onDrop(e: DragEvent) {
   isDragging.value = false
+  if (props.disabled) return
   if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files)
 }
 
@@ -108,7 +158,12 @@ function clear() {
   emitUpdate()
 }
 
-defineExpose({ clear, items })
+function openPicker() {
+  if (props.disabled) return
+  fileInputRef.value?.click()
+}
+
+defineExpose({ clear, items, openPicker, addFiles, hasUploading })
 </script>
 
 <style scoped>
@@ -125,20 +180,7 @@ defineExpose({ clear, items })
   padding: 4px;
 }
 .hidden-input { display: none; }
-.attach-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(199, 210, 254, 0.6);
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--color-primary);
-  font-size: 12px;
-  cursor: pointer;
-}
-.attach-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.preview-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.preview-row { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
 .preview-item {
   position: relative;
   width: 56px;
@@ -146,8 +188,30 @@ defineExpose({ clear, items })
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(199, 210, 254, 0.5);
+  background: rgba(255, 255, 255, 0.9);
+}
+.preview-item.is-file {
+  width: auto;
+  min-width: 120px;
+  max-width: 200px;
+  height: 40px;
+  padding: 0 28px 0 8px;
 }
 .preview-item img { width: 100%; height: 100%; object-fit: cover; }
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+}
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
 .remove-btn {
   position: absolute;
   top: 2px;

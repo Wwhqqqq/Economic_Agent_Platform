@@ -1,0 +1,7 @@
+# 大数据集 train.json 不入 Git；保留 manifest 与抽检文件
+accounting_sft_mvp/train.json
+accounting_sft_mvp/eval.json
+accounting_sft_recommended/train.json
+accounting_sft_recommended/eval.json
+llamafactory/data/accounting_sft.json
+llamafactory/data/accounting_sft_eval.json

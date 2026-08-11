@@ -21,15 +21,22 @@ def build_private_filter(user_id: int) -> dict[str, Any]:
     }
 
 
-def build_retrieval_filter(user_id: int, user_type: str = "regular") -> dict[str, Any]:
+def build_retrieval_filter(user_id: int, user_type: str = "regular", *, is_member: bool = False) -> dict[str, Any]:
     """
     Build metadata filter for hybrid retrieval.
 
-    Phase 2: always private-only for the requesting user.
-    Phase 3: extend here — member users OR visibility=member (see docs phase2/04).
+    Regular: private docs only.
+    Member: private OR platform member library.
     """
-    _ = user_type  # reserved for Phase 3 member library branch
-    return build_private_filter(user_id)
+    private = build_private_filter(user_id)
+    if is_member or user_type == "member":
+        return {
+            "$or": [
+                private,
+                {"visibility": "member"},
+            ]
+        }
+    return private
 
 
 def knowledge_metadata(

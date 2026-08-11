@@ -1,0 +1,54 @@
+﻿{
+    "passed":  true,
+    "checks":  [
+                   {
+                       "name":  "GPU nvidia-smi",
+                       "passed":  true,
+                       "detail":  "NVIDIA GeForce RTX 5080 Laptop GPU, 16303 MiB"
+                   },
+                   {
+                       "name":  "PyTorch cu128 + CUDA",
+                       "passed":  true,
+                       "detail":  "2.11.0+cu128\r\nTrue\r\nNVIDIA GeForce RTX 5080 Laptop GPU"
+                   },
+                   {
+                       "name":  "Training deps",
+                       "passed":  true,
+                       "detail":  ""
+                   },
+                   {
+                       "name":  "LLaMA-Factory (pip/cli)",
+                       "passed":  true,
+                       "detail":  "E:\\venv\\agent-train\\Scripts\\llamafactory-cli.exe"
+                   },
+                   {
+                       "name":  "Phase1 train.json",
+                       "passed":  true,
+                       "detail":  "E:\\Desktop\\agent-platform\\agent-platform\\ModelSelection\\implementation\\scripts\\..\\datasets\\accounting_sft_recommended"
+                   },
+                   {
+                       "name":  "LF accounting_sft.json",
+                       "passed":  true,
+                       "detail":  "E:\\LLaMA-Factory"
+                   },
+                   {
+                       "name":  "train yaml",
+                       "passed":  true,
+                       "detail":  "E:\\LLaMA-Factory"
+                   },
+                   {
+                       "name":  "Qwen2.5-7B-Instruct weights",
+                       "passed":  true,
+                       "detail":  "E:\\models\\Qwen2.5-7B-Instruct"
+                   },
+                   {
+                       "name":  "LoRA adapter (post-train)",
+                       "passed":  false,
+                       "detail":  "E:\\models\\qwen7b-accounting-lora (expected empty before training)"
+                   }
+               ],
+    "next_step":  "Tell agent to run: .\\run_phase2.ps1 -SkipEnvSetup",
+    "venv_root":  "E:\\venv\\agent-train",
+    "llamafactory_root":  "E:\\LLaMA-Factory",
+    "models_root":  "E:\\models"
+}

@@ -9,7 +9,14 @@
 
     <div class="page-body">
       <div class="skills-grid">
-        <GlassCard v-for="skill in skills" :key="skill.name" hoverable class="skill-card">
+        <GlassCard
+          v-for="skill in skills"
+          :key="skill.name"
+          hoverable
+          class="skill-card"
+          :class="{ locked: skill.membership_required && !auth.isMember }"
+          @click="onSkillClick(skill)"
+        >
           <div class="skill-top">
             <div class="skill-icon-wrap">
               <el-icon :size="18"><Aim /></el-icon>
@@ -17,15 +24,20 @@
             <div class="skill-head">
               <div class="name-row">
                 <h3>{{ skill.display_name }}</h3>
-                <code class="slash-chip" @click="copySlash(skill.name)">/{{ skill.name }}</code>
+                <code class="slash-chip" @click.stop="copySlash(skill.name)">/{{ skill.name }}</code>
               </div>
-              <el-tag size="small" type="primary" effect="plain">{{ skill.category_label }}</el-tag>
+              <div class="tag-row">
+                <el-tag size="small" type="primary" effect="plain">{{ skill.category_label }}</el-tag>
+                <el-tag v-if="skill.membership_required" size="small" type="warning" effect="plain">会员专享</el-tag>
+              </div>
             </div>
           </div>
           <p class="skill-desc">{{ skill.description }}</p>
         </GlassCard>
       </div>
     </div>
+
+    <UpgradePrompt ref="upgradePromptRef" />
   </div>
 </template>
 
@@ -34,10 +46,14 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Aim } from '@element-plus/icons-vue'
 import { fetchSkills } from '../api/client'
+import { useAuthStore } from '../stores/auth'
 import PageHeader from '../components/layout/PageHeader.vue'
 import GlassCard from '../components/ui/GlassCard.vue'
+import UpgradePrompt from '../components/ui/UpgradePrompt.vue'
 
+const auth = useAuthStore()
 const skills = ref<any[]>([])
+const upgradePromptRef = ref<InstanceType<typeof UpgradePrompt> | null>(null)
 
 onMounted(async () => { await loadSkills() })
 
@@ -48,9 +64,17 @@ async function loadSkills() {
   } catch (e) { console.error(e) }
 }
 
+function onSkillClick(skill: { name: string; membership_required?: boolean }) {
+  if (skill.membership_required && !auth.isMember) {
+    upgradePromptRef.value?.open('该技能需开通会员')
+    return
+  }
+  copySlash(skill.name)
+}
+
 function copySlash(name: string) {
   navigator.clipboard.writeText(`/${name} `).then(() => {
-    ElMessage.success('已复制')
+    ElMessage.success('已复制，请在聊天框粘贴使用')
   }).catch(() => {
     ElMessage.info(`请在聊天框输入 /${name}`)
   })
@@ -64,6 +88,17 @@ function copySlash(name: string) {
   gap: 12px;
 }
 
+.skill-card.locked {
+  opacity: 0.85;
+}
+
+.tag-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
 @media (max-width: 1100px) {
   .skills-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -75,73 +110,54 @@ function copySlash(name: string) {
 .skill-card {
   padding: 14px 16px !important;
   min-height: 120px;
+  cursor: pointer;
 }
 
 .skill-top {
   display: flex;
   gap: 10px;
-  align-items: flex-start;
   margin-bottom: 8px;
 }
 
 .skill-icon-wrap {
   width: 36px;
   height: 36px;
-  border-radius: 9px;
-  background: var(--ui-primary-light);
-  color: var(--color-primary);
+  border-radius: 10px;
+  background: rgba(79, 70, 229, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--color-primary);
   flex-shrink: 0;
-  border: 1px solid var(--ui-border);
 }
 
-.skill-head {
-  flex: 1;
-  min-width: 0;
-}
+.skill-head { flex: 1; min-width: 0; }
 
 .name-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
 }
 
 .name-row h3 {
-  font-size: 15px;
-  font-weight: 700;
   margin: 0;
-  color: var(--ui-text-primary);
+  font-size: 15px;
 }
 
 .slash-chip {
   font-size: 11px;
-  font-weight: 600;
-  font-family: ui-monospace, monospace;
-  color: var(--color-primary);
-  background: rgba(238, 242, 255, 0.95);
-  border: 1px solid rgba(199, 210, 254, 0.55);
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 6px;
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--color-primary);
   cursor: pointer;
-  white-space: nowrap;
-}
-
-.slash-chip:hover {
-  background: rgba(224, 231, 255, 0.95);
 }
 
 .skill-desc {
-  font-size: 12px;
-  color: var(--ui-text-regular);
-  line-height: 1.55;
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 13px;
+  color: var(--ui-text-secondary);
+  line-height: 1.5;
 }
 </style>

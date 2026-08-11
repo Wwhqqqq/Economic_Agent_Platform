@@ -10,12 +10,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.db.models.media_asset import MediaAsset
-from app.ingestion.media.service import parse_chat_attachment, parse_image_bytes
+from app.ingestion.media.service import (
+    CHAT_FILE_EXTENSIONS,
+    CHAT_IMAGE_EXTENSIONS,
+    _file_extension,
+    parse_chat_attachment_fast,
+    parse_image_bytes,
+    save_chat_file_attachment,
+)
 from app.schemas.user_context import UserContext
 from app.services.auth import get_current_user
 from app.storage import get_storage
 
 router = APIRouter(prefix="/api/media", tags=["media"])
+
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_FILE_BYTES = 20 * 1024 * 1024
 
 
 def _require_user(user: UserContext) -> int:
@@ -24,40 +34,57 @@ def _require_user(user: UserContext) -> int:
     return user.user_id
 
 
+def _persist_media_asset(db: AsyncSession, *, uid: int, result: dict) -> None:
+    vlm_structured = result.get("vlm_structured")
+    if isinstance(vlm_structured, dict):
+        vlm_structured = json.dumps(vlm_structured, ensure_ascii=False)
+    db.add(
+        MediaAsset(
+            id=result["asset_id"],
+            user_id=uid,
+            doc_id=None,
+            filename=result.get("filename") or "upload",
+            mime_type=result.get("mime_type") or "application/octet-stream",
+            source="chat_attachment" if result.get("kind") == "image" else "chat_file",
+            storage_uri=result.get("storage_uri") or "",
+            thumbnail_uri=result.get("thumbnail_uri"),
+            image_class=result.get("image_class"),
+            ocr_text=result.get("ocr_text") or result.get("text_preview"),
+            ocr_quality=result.get("ocr_quality"),
+            vlm_caption=result.get("vlm_caption"),
+            vlm_structured=vlm_structured,
+            parse_status="ready",
+        )
+    )
+
+
 @router.post("/upload")
 async def upload_media(
     file: UploadFile = File(...),
     user: UserContext = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upload image for chat attachment (not indexed into knowledge base)."""
+    """Upload image or document for chat attachment (not indexed into knowledge base)."""
     uid = _require_user(user)
-    filename = file.filename or "image.png"
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if ext not in ("png", "jpg", "jpeg", "webp", "gif", "bmp"):
-        raise HTTPException(status_code=400, detail="仅支持 png/jpg/jpeg/webp/gif/bmp 图片")
+    filename = file.filename or "upload.bin"
+    ext = _file_extension(filename)
+    if ext not in CHAT_IMAGE_EXTENSIONS and ext not in CHAT_FILE_EXTENSIONS:
+        allowed = ", ".join(sorted(CHAT_IMAGE_EXTENSIONS | CHAT_FILE_EXTENSIONS))
+        raise HTTPException(status_code=400, detail=f"不支持的文件类型，允许：{allowed}")
+
     raw = await file.read()
-    if len(raw) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="图片大小不能超过 10MB")
-    result = parse_chat_attachment(raw, uid, filename=filename)
-    db.add(
-        MediaAsset(
-            id=result["asset_id"],
-            user_id=uid,
-            doc_id=None,
-            filename=filename,
-            mime_type=result.get("mime_type") or "image/png",
-            source="chat_attachment",
-            storage_uri=result.get("storage_uri") or "",
-            thumbnail_uri=result.get("thumbnail_uri"),
-            image_class=result.get("image_class"),
-            ocr_text=result.get("ocr_text"),
-            ocr_quality=result.get("ocr_quality"),
-            vlm_caption=result.get("vlm_caption"),
-            vlm_structured=json.dumps(result.get("vlm_structured") or {}, ensure_ascii=False),
-            parse_status="ready",
-        )
-    )
+    is_image = ext in CHAT_IMAGE_EXTENSIONS
+    max_bytes = MAX_IMAGE_BYTES if is_image else MAX_FILE_BYTES
+    if len(raw) > max_bytes:
+        limit_mb = max_bytes // (1024 * 1024)
+        raise HTTPException(status_code=400, detail=f"文件大小不能超过 {limit_mb}MB")
+
+    if is_image:
+        result = parse_chat_attachment_fast(raw, uid, filename=filename)
+    else:
+        result = save_chat_file_attachment(raw, uid, filename=filename)
+
+    _persist_media_asset(db, uid=uid, result=result)
     await db.commit()
     return {"status": "ready", **result}
 
@@ -80,12 +107,16 @@ async def get_media_metadata(
             structured = json.loads(row.vlm_structured)
         except json.JSONDecodeError:
             structured = row.vlm_structured
+    kind = "file" if row.source == "chat_file" else "image"
     return {
         "asset_id": row.id,
         "filename": row.filename,
         "mime_type": row.mime_type,
+        "kind": kind,
         "source": row.source,
         "doc_id": row.doc_id,
+        "file_path": row.filename if kind == "file" else None,
+        "text_preview": row.ocr_text if kind == "file" else None,
         "image_class": row.image_class,
         "ocr_text": row.ocr_text,
         "ocr_quality": row.ocr_quality,
@@ -94,8 +125,8 @@ async def get_media_metadata(
         "vlm_quality": row.vlm_quality,
         "parse_status": row.parse_status,
         "page_no": row.page_no,
-        "url": f"/api/media/{row.id}/original",
-        "thumbnail_url": f"/api/media/{row.id}/thumb",
+        "url": f"/api/media/{row.id}/original" if kind == "image" else None,
+        "thumbnail_url": f"/api/media/{row.id}/thumb" if kind == "image" else None,
     }
 
 

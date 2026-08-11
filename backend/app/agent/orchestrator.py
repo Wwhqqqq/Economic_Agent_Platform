@@ -26,6 +26,7 @@ from app.core.catalog import (
 )
 from app.core.connection_context import get_active_skill_name
 from app.skills.registry import skill_registry
+from app.schemas.user_context import UserContext
 
 
 class AgentOrchestrator:
@@ -47,7 +48,7 @@ class AgentOrchestrator:
         """规范化 Agent 配置（固定 DeepSeek）。"""
         return normalize_agent_config(config)
 
-    def _select_mode(self, user_input: str, mode: str) -> str:
+    def _select_mode(self, user_input: str, mode: str, user: UserContext | None = None) -> str:
         """
         智能路由：返回规范 execution_mode key
         adaptive / reasoning_action / task_orchestration / collaborative_decision
@@ -55,6 +56,10 @@ class AgentOrchestrator:
         canonical = normalize_execution_mode(mode)
         if canonical != "adaptive":
             return canonical
+
+        # 普通用户 Auto 固定走 ReAct，不做关键词升级
+        if user is not None and not user.is_member:
+            return "reasoning_action"
 
         complex_keywords = ["分析", "审计", "评估", "报告", "计划", "对比", "审核", "尽调"]
         debate_keywords = ["辩论", "讨论", "评审", "多方", "角度", "委员会"]
@@ -80,19 +85,26 @@ class AgentOrchestrator:
             return self._plan_execute_agent
         return self._react_agent
 
-    def _resolve_mode(self, user_input: str, mode: str, config: AgentConfig) -> str:
+    def _resolve_mode(self, user_input: str, mode: str, config: AgentConfig, user: UserContext | None = None) -> str:
         if config.engine == "team_protocol" or config.team_protocol:
             return "collaborative_decision"
-        return self._select_mode(user_input, mode)
+        return self._select_mode(user_input, mode, user)
 
     async def invoke(
         self,
         user_input: str,
         config: AgentConfig = None,
         mode: str = "adaptive",
+        user: UserContext | None = None,
     ) -> AgentResponse:
         config = self._prepare_config(config)
-        selected = self._resolve_mode(user_input, mode, config)
+        if user is None and config and config.user_type:
+            user = UserContext(
+                user_id=config.user_id or 0,
+                username="",
+                user_type=config.user_type,
+            )
+        selected = self._resolve_mode(user_input, mode, config, user)
         agent = self._get_agent(selected, config)
         if agent.__class__.__name__ == "TeamProtocolEngine":
             return await agent.invoke(
@@ -105,9 +117,17 @@ class AgentOrchestrator:
         user_input: str,
         config: AgentConfig = None,
         mode: str = "adaptive",
+        user: UserContext | None = None,
     ) -> AsyncIterator[AgentEvent]:
         config = self._prepare_config(config)
-        selected = self._resolve_mode(user_input, mode, config)
+        if user is None and config and config.user_type:
+            user = UserContext(
+                user_id=config.user_id or 0,
+                username="",
+                user_type=config.user_type,
+                membership_expires_at=getattr(config, "membership_expires_at", None),
+            )
+        selected = self._resolve_mode(user_input, mode, config, user)
 
         mode_meta = EXECUTION_MODES.get(selected, {})
         skill_name = config.active_skill

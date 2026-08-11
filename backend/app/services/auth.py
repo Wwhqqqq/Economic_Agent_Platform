@@ -239,7 +239,10 @@ async def require_member(user: UserContext = Depends(get_current_user)) -> UserC
     if not AUTH_ENABLED:
         return user
     if not user.is_member:
-        raise HTTPException(status_code=403, detail="该功能需开通会员")
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MEMBERSHIP_REQUIRED", "message": "该功能需开通会员"},
+        )
     return user
 
 

@@ -51,7 +51,9 @@ export class ChatWebSocket {
       this.ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data)
-          this.emit(msg.type, msg.data)
+          const payload = { ...(msg.data || {}) }
+          if (msg.code) payload.code = msg.code
+          this.emit(msg.type, payload)
         } catch (e) {
           console.error('[WS] Parse error:', e)
         }

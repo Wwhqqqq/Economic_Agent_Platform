@@ -242,3 +242,28 @@ export async function fetchAuditLogs(limit = 50) {
   const { data } = await api.get('/audit/logs', { params: { limit } })
   return data
 }
+
+export async function fetchMembershipStatus() {
+  const { data } = await api.get('/membership/status')
+  return data
+}
+
+export async function fetchMembershipQuota() {
+  const { data } = await api.get('/membership/quota')
+  return data
+}
+
+export async function redeemMembershipCode(code: string) {
+  const { data } = await api.post('/membership/redeem', { code })
+  return data
+}
+
+export async function fetchMemberKnowledgeDocuments(limit = 100, offset = 0) {
+  const { data } = await api.get('/knowledge/documents/member', { params: { limit, offset } })
+  return data
+}
+
+export async function fetchMembershipOrders() {
+  const { data } = await api.get('/membership/orders')
+  return data
+}

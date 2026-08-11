@@ -1,0 +1,166 @@
+# 微调方案 1 — 数据源配置
+# 由 build_accounting_sft.py 读取
+
+system_prompt: "你是一名专业的财务审阅助手，擅长会计学、审计与财务报表分析。回答应准确、结构化，涉及依据时需标注参考来源。"
+
+profiles:
+  mvp:
+    target_train_size: 4000
+    max_per_source:
+      S1: 8000
+      S2: 2001
+      S3: 5000
+      S4: 2500
+      S5: 2000
+      S6: 1500
+      S7: 1500
+      S8: 1500
+      G1: 400
+      G2: 400
+      G3: 300
+  recommended:
+    target_train_size: 12000
+    max_per_source:
+      S1: 30300
+      S2: 2001
+      S3: 12000
+      S4: 2500
+      S5: 6000
+      S6: 4000
+      S7: 4000
+      S8: 4000
+      G1: 1200
+      G2: 1200
+      G3: 600
+  full:
+    target_train_size: 30000
+    max_per_source:
+      S1: 30300
+      S2: 2001
+      S3: 15000
+      S4: 3144
+      S5: 10000
+      S6: 8000
+      S7: 8000
+      S8: 8000
+      G1: 1500
+      G2: 1500
+      G3: 1000
+
+mix_weights:
+  L1_core: 0.60   # S1-S4
+  L2_supplement: 0.22  # S5-S8
+  L3_behavior: 0.12    # G1-G2
+  L4_general: 0.06     # G3
+
+accounting_keywords:
+  - 会计
+  - 审计
+  - 准则
+  - 报表
+  - 资产负债
+  - 利润
+  - 现金流
+  - 存货
+  - 折旧
+  - 摊销
+  - 减值
+  - 凭证
+  - 分录
+  - 借贷
+  - 科目
+  - 毛利率
+  - 净利率
+  - 流动比率
+  - 速动比率
+  - ROE
+  - ROA
+  - 杜邦
+  - 增值税
+  - 所得税
+  - 注册会计师
+  - CPA
+  - 审阅
+  - 内控
+  - 合规
+  - 财报
+  - 三大报表
+  - 所有者权益
+  - 商誉
+  - 合并报表
+  - 底稿
+  - 函证
+
+exclude_keywords:
+  - 买入评级
+  - 目标价
+  - PE估值
+  - 股价
+  - 涨停
+  - 区块链
+  - 比特币
+  - 期权定价
+
+cflue:
+  include_names:
+    - 注册会计师
+    - 初级会计职称
+  include_subjects:
+    - 会计
+    - 审计
+    - 税法
+    - 财务成本管理
+    - 经济法
+    - 公司战略与风险
+  name_contains:
+    - 会计
+    - 审计
+
+ch05_domains:
+  - 财务分析
+  - 税收知识
+  - 金融法规
+  - 银行业务
+
+sources:
+  S1:
+    hf_id: lxl3129/sft-audit_regulation
+    split: train
+    enabled: true
+  S2:
+    hf_id: XIANGFENGLI/ACCOUNTING_DATABASES
+    split: train
+    enabled: true
+  S3:
+    hf_id: DianJin/CFLUE
+    split: train
+    enabled: true
+  S4:
+    hf_id: realrick/ch05-sft-dataset
+    split: train
+    enabled: true
+  S5:
+    hf_id: OpenDataArena/ODA-Fin-SFT-318k
+    split: train
+    enabled: true
+    streaming: true
+  S6:
+    hf_id: antgroup/Agentar-DeepFinance-100K
+    split: train
+    enabled: true
+    streaming: true
+  S7:
+    hf_id: DianJin/DianJin-R1-Data
+    split: train
+    enabled: true
+  S8:
+    hf_id: BAAI/IndustryInstruction_Finance-Economics
+    split: train
+    enabled: true
+    streaming: true
+
+limits:
+  max_instruction_chars: 6000
+  max_output_chars: 4096
+  min_zh_ratio: 0.25
+  eval_ratio: 0.05

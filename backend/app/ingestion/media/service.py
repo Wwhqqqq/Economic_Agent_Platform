@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 from app.ingestion.chunker import chunk_text
 from app.ingestion.media.image_classifier_v2 import classify_image_v2
-from app.ingestion.media.ocr import ocr_image
+from app.ingestion.media.ocr import ocr_image, ocr_image_fast
 from app.ingestion.media.vlm import (
     content_hash_bytes,
     describe_image,
@@ -23,6 +24,8 @@ PARSER_VERSION = "media_pipeline_v2"
 MIN_VLM_FACT_CONFIDENCE = 0.7
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+CHAT_FILE_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".pdf", ".xlsx", ".xls", ".doc", ".docx", ".log"}
+CHAT_IMAGE_EXTENSIONS = IMAGE_EXTENSIONS
 
 
 @dataclass
@@ -328,8 +331,114 @@ def parse_image_bytes(
     )
 
 
+def _file_extension(filename: str) -> str:
+    if "." not in filename:
+        return ""
+    return "." + filename.rsplit(".", 1)[-1].lower()
+
+
+def _guess_file_mime(ext: str) -> str:
+    return {
+        ".txt": "text/plain",
+        ".md": "text/markdown",
+        ".csv": "text/csv",
+        ".json": "application/json",
+        ".pdf": "application/pdf",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xls": "application/vnd.ms-excel",
+        ".doc": "application/msword",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".log": "text/plain",
+    }.get(ext, "application/octet-stream")
+
+
+def _quick_text_preview(path: str, ext: str, *, max_chars: int = 3000) -> str:
+    ext = ext.lower().lstrip(".")
+    try:
+        if ext in ("txt", "md", "log", "csv"):
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                return f.read(max_chars)
+        if ext == "json":
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                text = json.dumps(data, ensure_ascii=False, indent=2)
+                return text[:max_chars]
+        if ext == "pdf":
+            import PyPDF2
+
+            reader = PyPDF2.PdfReader(path)
+            parts: list[str] = []
+            for page in reader.pages[:3]:
+                text = page.extract_text() or ""
+                if text.strip():
+                    parts.append(text)
+            return "\n".join(parts)[:max_chars]
+        if ext in ("xlsx", "xls"):
+            import pandas as pd
+
+            df = pd.read_excel(path).head(20)
+            return df.to_string()[:max_chars]
+    except Exception:
+        return ""
+    return ""
+
+
+def parse_chat_attachment_fast(image_bytes: bytes, user_id: int, *, filename: str = "image.png") -> dict:
+    """Fast chat image upload — store file + lightweight OCR, skip heavy VLM."""
+    fname = filename or "image.png"
+    media = MediaAssetService().upload_bytes(
+        image_bytes, fname, user_id, source="chat_attachment", doc_id=None
+    )
+    mime = _guess_mime(fname)
+    ocr = ocr_image_fast(image_bytes)
+    return {
+        "asset_id": media.asset_id,
+        "filename": fname,
+        "mime_type": mime,
+        "kind": "image",
+        "image_class": "unknown",
+        "ocr_text": ocr.text,
+        "ocr_quality": ocr.quality,
+        "vlm_caption": "",
+        "vlm_structured": {},
+        "storage_uri": media.storage_uri,
+        "thumbnail_uri": media.thumbnail_uri,
+        "url": f"/api/media/{media.asset_id}/original",
+        "thumbnail_url": f"/api/media/{media.asset_id}/thumb",
+    }
+
+
+def save_chat_file_attachment(file_bytes: bytes, user_id: int, *, filename: str = "file.txt") -> dict:
+    """Save a document for chat — stored under user uploads for file_reader access."""
+    from app.services.knowledge_service import user_upload_dir
+
+    asset_id = str(uuid.uuid4())
+    safe = os.path.basename(filename or "file.bin")
+    base, ext = os.path.splitext(safe)
+    unique_name = f"{base}_{asset_id[:8]}{ext}" if ext else f"{base}_{asset_id[:8]}"
+    dest_dir = user_upload_dir(user_id)
+    dest_path = os.path.join(dest_dir, unique_name)
+    with open(dest_path, "wb") as f:
+        f.write(file_bytes)
+    ext_key = _file_extension(unique_name)
+    preview = _quick_text_preview(dest_path, ext_key.lstrip("."))
+    mime = _guess_file_mime(ext_key)
+    return {
+        "asset_id": asset_id,
+        "filename": unique_name,
+        "mime_type": mime,
+        "kind": "file",
+        "file_path": unique_name,
+        "text_preview": preview,
+        "storage_uri": dest_path,
+        "thumbnail_uri": None,
+        "url": None,
+        "data_url": None,
+    }
+
+
 def parse_chat_attachment(image_bytes: bytes, user_id: int, *, filename: str = "image.png") -> dict:
-    """Parse image for chat (no knowledge indexing)."""
+    """Parse image for chat with full OCR/VLM (legacy / tests). Prefer parse_chat_attachment_fast."""
     import base64
 
     parsed = parse_image_bytes(
@@ -346,6 +455,7 @@ def parse_chat_attachment(image_bytes: bytes, user_id: int, *, filename: str = "
         "asset_id": parsed.asset_id,
         "filename": parsed.filename,
         "mime_type": mime,
+        "kind": "image",
         "image_class": parsed.image_class,
         "ocr_text": parsed.ocr_text,
         "ocr_quality": parsed.ocr_quality,

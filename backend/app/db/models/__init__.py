@@ -8,6 +8,7 @@ from app.db.models.ingest_job import IngestJob
 from app.db.models.media_asset import MediaAsset
 from app.db.models.knowledge_table import KnowledgeTable
 from app.db.models.knowledge_fact import KnowledgeFact
+from app.db.models.membership import MembershipCode, MembershipOrder, MembershipRedemption
 
 __all__ = [
     "User",
@@ -20,4 +21,7 @@ __all__ = [
     "MediaAsset",
     "KnowledgeTable",
     "KnowledgeFact",
+    "MembershipOrder",
+    "MembershipCode",
+    "MembershipRedemption",
 ]

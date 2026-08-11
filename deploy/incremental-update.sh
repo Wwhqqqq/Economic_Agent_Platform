@@ -21,7 +21,8 @@ set -euo pipefail
 APP_NAME="${APP_NAME:-agent-platform}"
 APP_DIR="${APP_DIR:-/opt/apps/${APP_NAME}}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
-REPO_URL="${REPO_URL:-https://github.com/Wwhqqqq/Economic_Agent_Platform.git}"
+# 优先 SSH（服务器需配置 GitHub deploy key）；可 export REPO_URL= 覆盖为 HTTPS
+REPO_URL="${REPO_URL:-git@github.com:Wwhqqqq/Economic_Agent_Platform.git}"
 DEPLOY_PORT="${DEPLOY_PORT:-8082}"
 SERVER_IP="${SERVER_IP:-111.229.87.157}"
 
@@ -229,9 +230,9 @@ for svc in "${BUILD_LIST[@]}"; do
 done
 
 # ---------- 数据库迁移 (Batch 1–5: 003→006) ----------
-log "Alembic 迁移 (upgrade head → 006_media_vlm)"
+log "Alembic 迁移 (upgrade head)"
 
-info "迁移链: 003_knowledge_chunks → 004_media_assets → 005_knowledge_facts → 006_media_vlm"
+info "迁移链: … → 006_media_vlm → 007_membership"
 if compose run --rm migrate alembic current 2>/dev/null; then
   info "迁移前版本 ↑"
 fi

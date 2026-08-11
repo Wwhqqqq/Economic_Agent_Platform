@@ -43,6 +43,7 @@ export const useChatStore = defineStore('chat', () => {
   const isLoading = ref(false)
   const ws = ref<ChatWebSocket | null>(null)
   const sessionId = ref('session_' + Date.now())
+  const membershipRequiredMessage = ref<string | null>(null)
 
   function connect() {
     if (ws.value) ws.value.disconnect()
@@ -134,6 +135,14 @@ export const useChatStore = defineStore('chat', () => {
 
     ws.value.on('error', (data) => {
       isLoading.value = false
+      const last = messages.value[messages.value.length - 1]
+      if (last?.role === 'assistant' && last.isStreaming) {
+        messages.value.pop()
+      }
+      if (data.code === 'MEMBERSHIP_REQUIRED') {
+        membershipRequiredMessage.value = data.message || '该功能需开通会员'
+        return
+      }
       messages.value.push({
         id: 'err_' + Date.now(),
         role: 'system',
@@ -269,11 +278,17 @@ export const useChatStore = defineStore('chat', () => {
     ws.value?.disconnect()
   }
 
+  function clearMembershipRequiredMessage() {
+    membershipRequiredMessage.value = null
+  }
+
   return {
     messages,
     sessions,
     isLoading,
     sessionId,
+    membershipRequiredMessage,
+    clearMembershipRequiredMessage,
     connect,
     disconnect,
     loadSessions,

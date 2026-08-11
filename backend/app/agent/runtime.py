@@ -163,10 +163,17 @@ async def build_initial_messages(
             and provider_supports_vision(vision_provider, config.model)
         )
         if use_vision:
-            human = build_multimodal_human_message(user_input, attachments)
+            file_attachments = [
+                a for a in attachments
+                if a.get("kind") == "file" or a.get("file_path")
+            ]
+            file_context = attachments_fallback_context(file_attachments) if file_attachments else ""
+            human = build_multimodal_human_message(
+                user_input, attachments, fallback_text=file_context
+            )
         else:
             fallback = attachments_fallback_context(attachments)
-            combined = user_input.strip() or "请分析附件图片。"
+            combined = user_input.strip() or "请分析附件。"
             if fallback:
                 combined = f"{combined}\n\n{fallback}"
             human = HumanMessage(content=combined)

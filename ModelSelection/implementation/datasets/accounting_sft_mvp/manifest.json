@@ -1,0 +1,42 @@
+{
+  "profile": "mvp",
+  "target_train_size": 4000,
+  "actual_train": 3800,
+  "actual_eval": 200,
+  "extracted_by_source": {
+    "G1": 400,
+    "G2": 400,
+    "G3": 300,
+    "S1": 8000,
+    "S2": 1999,
+    "S3": 4804,
+    "S4": 1090,
+    "S7": 1500,
+    "S8": 1500
+  },
+  "rejected_by_source": {
+    "S1": 158,
+    "S2": 2,
+    "S3": 26103,
+    "S4": 5198,
+    "S6": 99068,
+    "S7": 2940,
+    "S8": 23062
+  },
+  "mix_ratio_prefix": {
+    "S1": 1145,
+    "S3": 743,
+    "G1": 222,
+    "S8": 402,
+    "G3": 233,
+    "S2": 270,
+    "S7": 423,
+    "G2": 235,
+    "S4": 127
+  },
+  "leak_check": {
+    "cflue_test_in_train": 0,
+    "note": "CFLUE 仅使用 train split；test 禁止入训"
+  },
+  "config_path": "E:\\Desktop\\agent-platform\\agent-platform\\ModelSelection\\implementation\\scripts\\config\\dataset_sources.yaml"
+}

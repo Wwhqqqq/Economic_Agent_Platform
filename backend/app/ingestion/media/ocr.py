@@ -65,6 +65,12 @@ def _ocr_tesseract(image_bytes: bytes) -> Optional[OcrResult]:
         return None
 
 
+def ocr_image_fast(image_bytes: bytes) -> OcrResult:
+    """Fast OCR for chat uploads — tesseract only, avoids heavy PaddleOCR init."""
+    result = _ocr_tesseract(image_bytes)
+    return result or OcrResult(text="", quality=0.0, engine="none")
+
+
 def ocr_image(image_bytes: bytes) -> OcrResult:
     """Run OCR on image bytes; graceful fallback chain."""
     for fn in (_ocr_paddle, _ocr_tesseract):

@@ -9,6 +9,7 @@ from app.schemas.user_context import UserContext
 from app.services.audit_log import log_action
 from app.services.auth import AUTH_ENABLED, get_current_user
 from app.services import knowledge_service
+from app.services.quota_service import QuotaExceededError, check_quota, quota_http_exception
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
@@ -46,6 +47,10 @@ async def upload_knowledge(
 ):
     _require_logged_in(user)
     try:
+        await check_quota(db, "upload_document", user.user_id, user.user_type)
+    except QuotaExceededError as exc:
+        raise quota_http_exception(exc) from exc
+    try:
         result = await knowledge_service.upload_text(
             db,
             user,
@@ -78,6 +83,12 @@ async def upload_knowledge_file(
 ):
     _require_logged_in(user)
     raw = await file.read()
+    try:
+        await check_quota(
+            db, "upload_document", user.user_id, user.user_type, file_size_bytes=len(raw)
+        )
+    except QuotaExceededError as exc:
+        raise quota_http_exception(exc) from exc
     await knowledge_service.save_upload_file(user.user_id, file.filename or "upload.bin", raw)
     try:
         result = await knowledge_service.prepare_binary_upload(
@@ -143,6 +154,36 @@ async def upload_knowledge_media(
         filename=filename,
     )
     return {"status": "parsing", "filename": filename, **result}
+
+
+@router.get("/documents/member")
+async def list_member_library(
+    limit: int = 100,
+    offset: int = 0,
+    user: UserContext = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_logged_in(user)
+    if not user.is_member:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "MEMBERSHIP_REQUIRED", "message": "会员专享知识库需开通会员"},
+        )
+    rows = await knowledge_service.list_member_documents(db, limit=limit, offset=offset)
+    documents = [
+        {
+            "doc_id": row.id,
+            "title": row.title,
+            "filename": row.filename,
+            "visibility": row.visibility,
+            "parse_status": row.parse_status,
+            "chunk_count": row.chunk_count,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+    total = await knowledge_service.count_member_documents(db)
+    return {"documents": documents, "total": total}
 
 
 @router.get("/documents")
@@ -229,12 +270,13 @@ async def search_knowledge(
     user: UserContext = Depends(get_current_user),
 ):
     _require_logged_in(user)
+    tier = "member" if user.is_member else "regular"
     docs = get_hybrid_retriever().retrieve(
         query=req.query,
         top_k=req.top_k,
         mode=req.mode,
         user_id=user.user_id,
-        user_type=user.user_type,
+        user_type=tier,
     )
     return {
         "query": req.query,

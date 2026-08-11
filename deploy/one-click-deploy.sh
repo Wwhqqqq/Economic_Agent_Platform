@@ -20,7 +20,7 @@ set -euo pipefail
 APP_NAME="${APP_NAME:-agent-platform}"
 APP_DIR="${APP_DIR:-/opt/apps/${APP_NAME}}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
-REPO_URL="${REPO_URL:-https://github.com/Wwhqqqq/Economic_Agent_Platform.git}"
+REPO_URL="${REPO_URL:-git@github.com:Wwhqqqq/Economic_Agent_Platform.git}"
 DEPLOY_PORT="${DEPLOY_PORT:-8082}"
 SERVER_IP="${SERVER_IP:-111.229.87.157}"
 

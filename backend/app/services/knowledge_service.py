@@ -83,6 +83,34 @@ async def get_owned_document(
     return result.scalar_one_or_none()
 
 
+async def list_member_documents(
+    db: AsyncSession, *, limit: int = 100, offset: int = 0
+) -> list[KnowledgeDocument]:
+    result = await db.execute(
+        select(KnowledgeDocument)
+        .where(
+            KnowledgeDocument.visibility == "member",
+            KnowledgeDocument.deleted_at.is_(None),
+        )
+        .order_by(KnowledgeDocument.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().all())
+
+
+async def count_member_documents(db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(KnowledgeDocument)
+        .where(
+            KnowledgeDocument.visibility == "member",
+            KnowledgeDocument.deleted_at.is_(None),
+        )
+    )
+    return int(result.scalar() or 0)
+
+
 async def list_user_documents(
     db: AsyncSession, user_id: int, *, limit: int = 100, offset: int = 0
 ) -> list[KnowledgeDocument]:
