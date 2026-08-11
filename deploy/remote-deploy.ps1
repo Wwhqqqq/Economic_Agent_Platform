@@ -38,14 +38,15 @@ export SERVER_IP='$Server'
 $deepseekLine
 $mysqlContainerLine
 
-APP_DIR=/opt/apps/agent-platform
 REPO=https://github.com/Wwhqqqq/Economic_Agent_Platform.git
+REPO_SSH=git@github.com:Wwhqqqq/Economic_Agent_Platform.git
 
 if [ ! -f "`$APP_DIR/deploy/one-click-deploy.sh" ]; then
   mkdir -p /opt/apps
-  git clone --branch $Branch --single-branch `$REPO `$APP_DIR
+  git clone --branch $Branch --single-branch `$REPO_SSH `$APP_DIR
 fi
 
+export REPO_URL=`$REPO_SSH
 bash `$APP_DIR/deploy/one-click-deploy.sh
 "@
 

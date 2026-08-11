@@ -1,14 +1,15 @@
 # =============================================================================
-# 从 Windows 本机 SSH 到腾讯云，触发服务器 SSH 拉取 + 增量部署
+# 从 Windows 本机 SSH 到腾讯云 → 服务器用 PlatformAgent 密钥拉 GitHub 并部署
+#
+# GitHub 已配置 Deploy Key: PlatformAgent (Read/write)
 #
 # 用法:
-#   .\deploy\ssh-pull-deploy.ps1
-#   .\deploy\ssh-pull-deploy.ps1 -First          # 服务器首次部署
-#   .\deploy\ssh-pull-deploy.ps1 -PullOnly       # 仅拉代码
+#   .\deploy\ssh-pull-deploy.ps1                  # 日常增量更新
+#   .\deploy\ssh-pull-deploy.ps1 -First           # 首次部署
+#   .\deploy\ssh-pull-deploy.ps1 -PullOnly        # 仅拉代码
 #
-# 可选环境变量:
-#   $env:DEEPSEEK_API_KEY = "sk-xxxx"
-#   $env:MYSQL_PASSWORD = "your-pass"
+# 若服务器私钥不在默认路径，SSH 登录后指定:
+#   export GITHUB_DEPLOY_KEY=/root/.ssh/platform_agent
 # =============================================================================
 
 param(
@@ -17,6 +18,7 @@ param(
     [int]$Port = 8082,
     [string]$Branch = "main",
     [string]$AppDir = "/opt/apps/agent-platform",
+    [string]$GithubDeployKey = "",
     [switch]$First,
     [switch]$PullOnly
 )
@@ -37,6 +39,10 @@ if ($env:MYSQL_PASSWORD) {
 if ($env:MYSQL_CONTAINER) {
     $extraEnv += "export MYSQL_CONTAINER='$($env:MYSQL_CONTAINER)'"
 }
+$keyPath = if ($GithubDeployKey) { $GithubDeployKey } elseif ($env:GITHUB_DEPLOY_KEY) { $env:GITHUB_DEPLOY_KEY } else { "" }
+if ($keyPath) {
+    $extraEnv += "export GITHUB_DEPLOY_KEY='$keyPath'"
+}
 
 $remoteCmd = @"
 set -e
@@ -47,10 +53,14 @@ export REPO_SSH_URL='git@github.com:Wwhqqqq/Economic_Agent_Platform.git'
 export SERVER_IP='$Server'
 $($extraEnv -join "`n")
 
-# 确保部署脚本存在（首次从 GitHub SSH 克隆最小骨架）
 if [ ! -f "`$APP_DIR/deploy/ssh-pull-deploy.sh" ]; then
   mkdir -p "`$(dirname `$APP_DIR)"
   if [ ! -d "`$APP_DIR/.git" ]; then
+    # 首次克隆也走 PlatformAgent（setup_git_ssh 在脚本内处理）
+    if [ -f "`$APP_DIR/../deploy/ssh-pull-deploy.sh" ]; then
+      bash "`$APP_DIR/../deploy/ssh-pull-deploy.sh" --first
+      exit 0
+    fi
     git clone --branch $Branch --single-branch `$REPO_SSH_URL `$APP_DIR
   fi
 fi
@@ -58,7 +68,7 @@ fi
 bash `$APP_DIR/deploy/ssh-pull-deploy.sh $mode
 "@
 
-Write-Host "SSH → ${SshUser}@${Server}  模式: $mode  分支: $Branch"
+Write-Host "SSH -> ${SshUser}@${Server}  Deploy Key: PlatformAgent  模式: $mode"
 ssh "${SshUser}@${Server}" $remoteCmd
 Write-Host ""
 Write-Host "完成: http://${Server}:${Port}"

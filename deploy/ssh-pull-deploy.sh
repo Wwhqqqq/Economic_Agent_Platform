@@ -2,36 +2,32 @@
 # =============================================================================
 # Agent Platform — SSH 拉取 + 增量部署（腾讯云 / Linux 服务器）
 #
-# 使用 GitHub SSH 地址拉代码，适合已在服务器配置 deploy key 或 SSH 公钥的场景。
+# 已绑定 GitHub Deploy Key: PlatformAgent（Read/write）
+# 仓库 SSH: git@github.com:Wwhqqqq/Economic_Agent_Platform.git
 #
-# 【服务器一次性准备 — SSH 拉 GitHub】
-#   1. 生成密钥（若无）:
-#        ssh-keygen -t ed25519 -C "agent-platform-deploy" -f ~/.ssh/id_ed25519_github -N ""
-#   2. 查看公钥并添加到 GitHub → Settings → SSH and GPG keys:
-#        cat ~/.ssh/id_ed25519_github.pub
-#   3. 配置 ~/.ssh/config:
-#        Host github.com
-#          HostName github.com
-#          User git
-#          IdentityFile ~/.ssh/id_ed25519_github
-#          IdentitiesOnly yes
-#   4. 测试:
-#        ssh -T git@github.com
+# 【服务器 ~/.ssh/config 示例 — 指向已有 PlatformAgent 私钥】
+#   Host github.com
+#     HostName github.com
+#     User git
+#     IdentityFile ~/.ssh/platform_agent
+#     IdentitiesOnly yes
 #
-# 【首次部署】
-#   export DEEPSEEK_API_KEY="sk-xxx"          # 可选
-#   export MYSQL_PASSWORD="your-mysql-pass"   # 必填（若与默认不同）
-#   bash deploy/ssh-pull-deploy.sh --first
+# 若私钥路径不同，部署前 export:
+#   export GITHUB_DEPLOY_KEY=/root/.ssh/你的PlatformAgent私钥路径
 #
 # 【日常更新（推荐）】
 #   cd /opt/apps/agent-platform
 #   bash deploy/ssh-pull-deploy.sh
 #
+# 【首次部署】
+#   export MYSQL_PASSWORD="your-mysql-pass"
+#   bash deploy/ssh-pull-deploy.sh --first
+#
 # 环境变量:
-#   REPO_SSH_URL   默认 git@github.com:Wwhqqqq/Economic_Agent_Platform.git
-#   GIT_BRANCH     默认 main
-#   APP_DIR        默认 /opt/apps/agent-platform
-#   DEPLOY_PORT    默认 8082
+#   GITHUB_DEPLOY_KEY  PlatformAgent 私钥路径（自动探测见 setup_git_ssh）
+#   REPO_SSH_URL       默认 git@github.com:Wwhqqqq/Economic_Agent_Platform.git
+#   GIT_BRANCH         默认 main
+#   APP_DIR            默认 /opt/apps/agent-platform
 # =============================================================================
 
 set -euo pipefail
@@ -44,20 +40,48 @@ GIT_BRANCH="${GIT_BRANCH:-main}"
 APP_DIR="${APP_DIR:-/opt/apps/agent-platform}"
 MODE="${1:-update}"
 
+# PlatformAgent 私钥常见路径（按优先级自动探测）
+PLATFORM_AGENT_KEY_CANDIDATES=(
+  "${GITHUB_DEPLOY_KEY:-}"
+  "${HOME}/.ssh/platform_agent"
+  "${HOME}/.ssh/PlatformAgent"
+  "${HOME}/.ssh/id_ed25519_platform"
+  "${HOME}/.ssh/id_rsa_platform_agent"
+)
+
 log() { echo ""; echo "== $*"; }
 info() { echo "    $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
-ensure_github_ssh() {
-  if ssh -o BatchMode=yes -o ConnectTimeout=10 -T git@github.com 2>&1 | grep -qi "successfully authenticated"; then
-    info "GitHub SSH 认证正常"
+setup_git_ssh() {
+  local key=""
+  for candidate in "${PLATFORM_AGENT_KEY_CANDIDATES[@]}"; do
+    [[ -n "${candidate}" && -f "${candidate}" ]] || continue
+    key="${candidate}"
+    break
+  done
+
+  if [[ -n "${key}" ]]; then
+    export GIT_SSH_COMMAND="ssh -i ${key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+    info "使用 PlatformAgent 密钥: ${key}"
     return 0
   fi
-  info "警告: GitHub SSH 未通过 BatchMode 测试，继续尝试 git 操作…"
-  info "若 clone/fetch 失败，请按脚本头部说明配置 ~/.ssh/config 与 deploy key"
+
+  # 未找到文件时依赖 ~/.ssh/config（用户可能已配置 PlatformAgent）
+  info "未找到 PlatformAgent 私钥文件，使用系统默认 SSH 配置（~/.ssh/config）"
+}
+
+ensure_github_ssh() {
+  setup_git_ssh
+  if ssh -o BatchMode=yes -o ConnectTimeout=10 -T git@github.com 2>&1 | grep -qiE "successfully authenticated|You've successfully authenticated"; then
+    info "GitHub SSH 认证正常（PlatformAgent）"
+    return 0
+  fi
+  die "GitHub SSH 认证失败。请确认服务器上 PlatformAgent 私钥存在，且 ~/.ssh/config 中 IdentityFile 指向正确路径"
 }
 
 clone_or_update_repo() {
+  setup_git_ssh
   if [[ -d "${APP_DIR}/.git" ]]; then
     log "SSH 拉取最新代码 → ${GIT_BRANCH}"
     git -C "${APP_DIR}" remote set-url origin "${REPO_SSH_URL}"
@@ -79,6 +103,7 @@ run_incremental_update() {
   export REPO_URL="${REPO_SSH_URL}"
   export GIT_BRANCH
   export APP_DIR
+  setup_git_ssh
   bash "${APP_DIR}/deploy/incremental-update.sh"
 }
 
@@ -86,15 +111,15 @@ run_first_deploy() {
   export REPO_URL="${REPO_SSH_URL}"
   export GIT_BRANCH
   export APP_DIR
+  setup_git_ssh
   bash "${APP_DIR}/deploy/one-click-deploy.sh"
 }
 
-# ---------- 从本机仓库目录执行时：先同步到 APP_DIR ----------
 if [[ "${MODE}" == "--local-sync" ]]; then
-  # 开发机测试用：不 SSH，仅把当前目录当作 APP_DIR 跑增量
   APP_DIR="${REPO_ROOT}"
   export REPO_URL="${REPO_SSH_URL}"
   export APP_DIR
+  setup_git_ssh
   bash "${SCRIPT_DIR}/incremental-update.sh"
   exit 0
 fi
@@ -121,6 +146,7 @@ case "${MODE}" in
 esac
 
 log "完成"
-info "仓库 SSH : ${REPO_SSH_URL}"
-info "部署目录 : ${APP_DIR}"
-info "分支     : ${GIT_BRANCH}"
+info "Deploy Key : PlatformAgent"
+info "仓库 SSH   : ${REPO_SSH_URL}"
+info "部署目录   : ${APP_DIR}"
+info "分支       : ${GIT_BRANCH}"
