@@ -77,7 +77,13 @@ ensure_github_ssh() {
     info "GitHub SSH 认证正常（PlatformAgent）"
     return 0
   fi
-  die "GitHub SSH 认证失败。请确认服务器上 PlatformAgent 私钥存在，且 ~/.ssh/config 中 IdentityFile 指向正确路径"
+  echo ""
+  echo "[ERROR] GitHub SSH 认证失败。" >&2
+  echo "  PlatformAgent 私钥尚未正确安装到本机。" >&2
+  echo "  请先阅读: deploy/SSH-RECOVERY.md" >&2
+  echo "  安装命令: bash deploy/install-platform-agent-key.sh /path/to/platform_agent" >&2
+  echo "  切勿运行 ssh-keygen 覆盖已有密钥。" >&2
+  exit 1
 }
 
 clone_or_update_repo() {
