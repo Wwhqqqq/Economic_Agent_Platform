@@ -193,9 +193,19 @@ export async function clearSkillSession(sessionId: string) {
   return data
 }
 
-export async function clearSession(sessionId: string) {
+export async function clearSessionMessages(sessionId: string) {
+  const { data } = await api.post(`/sessions/${sessionId}/clear`)
+  return data
+}
+
+export async function deleteSession(sessionId: string) {
   const { data } = await api.delete(`/sessions/${sessionId}`)
   return data
+}
+
+/** @deprecated 使用 clearSessionMessages 或 deleteSession */
+export async function clearSession(sessionId: string) {
+  return clearSessionMessages(sessionId)
 }
 
 export async function fetchSessions() {

@@ -261,12 +261,13 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
                     "type": "error",
                     "data": {"message": f"执行超时（>{timeout}s），请简化任务后重试"},
                 })
-                await websocket.send_json({"type": "done", "data": {}})
             except Exception as e:
                 await websocket.send_json({
                     "type": "error",
                     "data": {"message": str(e)},
                 })
+            finally:
+                await websocket.send_json({"type": "done", "data": {}})
 
     except WebSocketDisconnect:
         print(f"[WS] Client disconnected: {session_id}")
@@ -327,12 +328,31 @@ async def list_sessions(
     return {"sessions": memory_manager.short_term.list_sessions()}
 
 
-@router.delete("/api/sessions/{session_id}")
-async def clear_session(
+@router.post("/api/sessions/{session_id}/clear")
+async def clear_session_messages(
     session_id: str,
     user: UserContext = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """仅清空会话消息，保留会话本身（用于「清空对话」）。"""
+    if AUTH_ENABLED and user.user_id:
+        owned = await chat_session_service.get_owned_session(db, session_id, user.user_id)
+        if not owned:
+            raise HTTPException(status_code=403, detail="无权访问该会话")
+        await chat_session_service.delete_messages(db, session_id, user.user_id)
+        result = await memory_manager.clear_session_all(session_id, user_id=user.user_id)
+        return {"status": "cleared", **result}
+    result = await memory_manager.clear_session_all(session_id)
+    return {"status": "cleared", **result}
+
+
+@router.delete("/api/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    user: UserContext = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """永久删除会话（右键删除）。"""
     if AUTH_ENABLED and user.user_id:
         owned = await chat_session_service.get_owned_session(db, session_id, user.user_id)
         if not owned:
@@ -342,7 +362,7 @@ async def clear_session(
         result = await memory_manager.clear_session_all(session_id, user_id=user.user_id)
         return {"status": "deleted", **result}
     result = await memory_manager.clear_session_all(session_id)
-    return {"status": "cleared", **result}
+    return {"status": "deleted", **result}
 
 
 @router.patch("/api/sessions/{session_id}")

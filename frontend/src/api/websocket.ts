@@ -98,12 +98,13 @@ export class ChatWebSocket {
     } catch (e) {
       console.error('[WS] Not connected', e)
       this.emit('error', { message: 'WebSocket 未连接，请刷新页面重试' })
-      return
+      throw e instanceof Error ? e : new Error('WebSocket 未连接，请刷新页面重试')
     }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.emit('error', { message: 'WebSocket 未就绪' })
-      return
+      const err = new Error('WebSocket 未就绪')
+      this.emit('error', { message: err.message })
+      throw err
     }
 
     const payload: Record<string, unknown> = {

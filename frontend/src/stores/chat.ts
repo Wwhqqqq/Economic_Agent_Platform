@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ChatWebSocket } from '../api/websocket'
-import { clearSession, fetchSessions, fetchSessionMessages, renameSession, createSession as apiCreateSession } from '../api/client'
+import { clearSessionMessages, deleteSession as apiDeleteSession, fetchSessions, fetchSessionMessages, renameSession, createSession as apiCreateSession } from '../api/client'
 
 export interface Citation {
   doc_id: string
@@ -262,6 +262,10 @@ export const useChatStore = defineStore('chat', () => {
       await ws.value?.send(content, options)
     } catch (e) {
       isLoading.value = false
+      const last = messages.value[messages.value.length - 1]
+      if (last?.role === 'assistant' && last.isStreaming) {
+        messages.value.pop()
+      }
       messages.value.push({
         id: 'err_' + Date.now(),
         role: 'system',
@@ -274,7 +278,7 @@ export const useChatStore = defineStore('chat', () => {
   async function clearChat() {
     messages.value = []
     try {
-      await clearSession(sessionId.value)
+      await clearSessionMessages(sessionId.value)
       await loadSessions()
     } catch (e) { console.error(e) }
   }
@@ -311,7 +315,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function deleteSession(id: string) {
-    await clearSession(id)
+    await apiDeleteSession(id)
     if (sessionId.value === id) {
       sessionId.value = ''
       messages.value = []
