@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
 import { ChatWebSocket } from '../api/websocket'
+import { isQuotaExceeded, parseApiErrorDetail, quotaLimitMessage } from '../utils/quotaError'
 import { clearSessionMessages, deleteSession as apiDeleteSession, fetchSessions, fetchSessionMessages, renameSession, createSession as apiCreateSession } from '../api/client'
 
 export interface Citation {
@@ -38,6 +38,14 @@ export interface SessionItem {
   updated_at: string
 }
 
+export interface NewSessionResult {
+  ok: boolean
+  quotaBlocked?: boolean
+  quotaReused?: boolean
+  quota?: string
+  message?: string
+}
+
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
   const sessions = ref<SessionItem[]>([])
@@ -45,6 +53,7 @@ export const useChatStore = defineStore('chat', () => {
   const ws = ref<ChatWebSocket | null>(null)
   const sessionId = ref('')
   const membershipRequiredMessage = ref<string | null>(null)
+  const quotaExceededMessage = ref<{ quota?: string; message: string } | null>(null)
   let responseWatchdog: ReturnType<typeof setTimeout> | null = null
 
   const RESPONSE_TIMEOUT_MS = 125_000
@@ -170,6 +179,11 @@ export const useChatStore = defineStore('chat', () => {
         membershipRequiredMessage.value = data.message || '该功能需开通会员'
         return
       }
+      if (data.code === 'QUOTA_EXCEEDED') {
+        membershipRequiredMessage.value = null
+        quotaExceededMessage.value = quotaLimitMessage(data.quota, data.message)
+        return
+      }
       if (silent && !wasSending) return
       messages.value.push({
         id: 'err_' + Date.now(),
@@ -230,9 +244,9 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function initialize() {
+  async function initialize(): Promise<NewSessionResult> {
     await loadSessions()
-    await newSession()
+    return newSession()
   }
 
   async function switchSession(id: string) {
@@ -266,7 +280,16 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function isQuotaOrRateLimitError(e: unknown) {
-    return axios.isAxiosError(e) && e.response?.status === 429
+    return isQuotaExceeded(e)
+  }
+
+  function extractQuotaInfo(e: unknown) {
+    const detail = parseApiErrorDetail(e)
+    if (!detail) return null
+    return {
+      quota: detail.quota,
+      message: quotaLimitMessage(detail.quota, detail.message),
+    }
   }
 
   async function adoptFallbackSession(): Promise<boolean> {
@@ -285,24 +308,37 @@ export const useChatStore = defineStore('chat', () => {
   async function createSessionOnServer(options: {
     force_new?: boolean
     exclude_session_id?: string
-  } = {}) {
+  } = {}): Promise<NewSessionResult> {
     try {
       const data = await apiCreateSession('新对话', options)
       sessionId.value = data.session_id
       await connect({ silent: true })
       await loadSessions()
-      return data.session_id
+      return { ok: true }
     } catch (e) {
       if (isQuotaOrRateLimitError(e)) {
-        console.warn('[chat] create session quota hit, adopting fallback session', e)
+        const info = extractQuotaInfo(e)
         const adopted = await adoptFallbackSession()
-        if (adopted) return sessionId.value
+        if (adopted) {
+          return {
+            ok: true,
+            quotaReused: true,
+            quota: info?.quota,
+            message: info?.message,
+          }
+        }
+        return {
+          ok: false,
+          quotaBlocked: true,
+          quota: info?.quota,
+          message: info?.message,
+        }
       }
       throw e
     }
   }
 
-  async function newSession(options: { userInitiated?: boolean } = {}) {
+  async function newSession(options: { userInitiated?: boolean } = {}): Promise<NewSessionResult> {
     const userInitiated = options.userInitiated ?? false
     const currentId = sessionId.value
 
@@ -313,34 +349,48 @@ export const useChatStore = defineStore('chat', () => {
         if (isCurrentSessionEmpty() && currentId) {
           messages.value = []
           await connect({ silent: true })
-          return
+          return { ok: true }
         }
 
         messages.value = []
         if (ws.value) ws.value.disconnect()
 
-        await createSessionOnServer({
+        return await createSessionOnServer({
           force_new: true,
           exclude_session_id: currentId || undefined,
         })
-        return
       }
 
       if (isCurrentSessionEmpty() && sessionId.value) {
         messages.value = []
         await connect({ silent: true })
-        return
+        return { ok: true }
       }
 
       messages.value = []
       if (ws.value) ws.value.disconnect()
-      await createSessionOnServer()
+      return await createSessionOnServer()
     } catch (e) {
       console.error('[chat] newSession failed', e)
+      const info = extractQuotaInfo(e)
       const adopted = await adoptFallbackSession()
-      if (!adopted && !sessionId.value) {
-        throw e
+      if (adopted) {
+        return {
+          ok: true,
+          quotaReused: Boolean(info),
+          quota: info?.quota,
+          message: info?.message,
+        }
       }
+      if (info) {
+        return {
+          ok: false,
+          quotaBlocked: true,
+          quota: info.quota,
+          message: info.message,
+        }
+      }
+      throw e
     }
   }
 
@@ -488,13 +538,19 @@ export const useChatStore = defineStore('chat', () => {
     membershipRequiredMessage.value = null
   }
 
+  function clearQuotaExceededMessage() {
+    quotaExceededMessage.value = null
+  }
+
   return {
     messages,
     sessions,
     isLoading,
     sessionId,
     membershipRequiredMessage,
+    quotaExceededMessage,
     clearMembershipRequiredMessage,
+    clearQuotaExceededMessage,
     connect,
     disconnect,
     loadSessions,

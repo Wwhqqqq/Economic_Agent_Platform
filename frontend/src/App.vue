@@ -23,6 +23,21 @@
           <el-icon><Plus /></el-icon>
           <span>新建对话</span>
         </button>
+        <div
+          v-if="showSessionQuotaBar"
+          :class="['session-quota-bar', { warn: membershipStore.sessionsNearLimit, full: membershipStore.sessionsAtLimit }]"
+        >
+          <el-icon v-if="membershipStore.sessionsNearLimit" class="quota-warn-icon"><WarningFilled /></el-icon>
+          <span>{{ membershipStore.sessionsUsageLabel }}</span>
+          <button
+            v-if="membershipStore.sessionsAtLimit"
+            type="button"
+            class="quota-upgrade-link"
+            @click="router.push('/membership')"
+          >
+            升级
+          </button>
+        </div>
         <div class="session-list">
           <el-dropdown
             v-for="s in visibleSessions"
@@ -120,11 +135,12 @@
         <router-view />
       </div>
     </main>
+    <QuotaPrompt ref="quotaPromptRef" @manage-sessions="focusSessionList" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor,
@@ -145,9 +161,12 @@ import { usePlatformStore } from './stores/platform'
 import { useSystemStore } from './stores/system'
 import { useChatStore } from './stores/chat'
 import { useAuthStore } from './stores/auth'
+import { useMembershipStore } from './stores/membership'
+import type { NewSessionResult } from './stores/chat'
 import { formatVersionLabel } from './utils/appVersion'
 import DecorativeBg from './components/ui/DecorativeBg.vue'
 import MembershipBadge from './components/ui/MembershipBadge.vue'
+import QuotaPrompt from './components/ui/QuotaPrompt.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -155,6 +174,8 @@ const platformStore = usePlatformStore()
 const systemStore = useSystemStore()
 const chatStore = useChatStore()
 const authStore = useAuthStore()
+const membershipStore = useMembershipStore()
+const quotaPromptRef = ref<InstanceType<typeof QuotaPrompt> | null>(null)
 
 const isChatRoute = computed(() => route.path === '/')
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
@@ -190,9 +211,45 @@ const visibleSessions = computed(() =>
   chatStore.sessions.filter(s => (s.message_count ?? 0) > 0),
 )
 
+const showSessionQuotaBar = computed(() => {
+  if (!authStore.token || authStore.isMember) return false
+  return Boolean(membershipStore.sessionsUsageLabel)
+})
+
+function handleNewSessionResult(
+  result: NewSessionResult,
+  options: { silentReuse?: boolean } = {},
+) {
+  if (result.quotaBlocked) {
+    quotaPromptRef.value?.openSessionLimit({
+      message: result.message,
+      usageLabel: membershipStore.sessionsUsageLabel,
+    })
+    return
+  }
+  if (result.quotaReused && !options.silentReuse) {
+    ElMessage.warning({
+      message:
+        result.message ||
+        '对话额度已满，无法新建条目。已继续在现有对话中交流，删除旧对话可释放额度。',
+      duration: 6000,
+      showClose: true,
+    })
+  }
+}
+
+function focusSessionList() {
+  if (route.path !== '/') {
+    router.push('/')
+  }
+}
+
 async function createSession() {
   if (route.path !== '/') await router.push('/')
-  await chatStore.newSession({ userInitiated: true })
+  await membershipStore.refresh()
+  const result = await chatStore.newSession({ userInitiated: true })
+  await membershipStore.refresh()
+  handleNewSessionResult(result)
 }
 
 async function selectSession(id: string) {
@@ -219,6 +276,7 @@ async function handleSessionMenu(command: string, sessionId: string) {
         { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
       )
       await chatStore.deleteSession(sessionId)
+      await membershipStore.refresh()
       ElMessage.success('对话已删除')
     } catch (e) {
       if (e !== 'cancel' && e !== 'close') {
@@ -228,6 +286,27 @@ async function handleSessionMenu(command: string, sessionId: string) {
   }
 }
 
+watch(
+  () => chatStore.quotaExceededMessage,
+  (payload) => {
+    if (!payload) return
+    if (payload.quota === 'daily_messages') {
+      quotaPromptRef.value?.openDailyMessageLimit(
+        payload.message,
+        membershipStore.dailyMessagesUsageLabel,
+      )
+    } else if (payload.quota === 'max_sessions') {
+      quotaPromptRef.value?.openSessionLimit({
+        message: payload.message,
+        usageLabel: membershipStore.sessionsUsageLabel,
+      })
+    } else {
+      quotaPromptRef.value?.openGeneric(payload.message, membershipStore.sessionsUsageLabel)
+    }
+    chatStore.clearQuotaExceededMessage()
+  },
+)
+
 onMounted(async () => {
   await platformStore.load()
   if (!isAuthRoute.value) {
@@ -236,8 +315,12 @@ onMounted(async () => {
   if (!authStore.checked) await authStore.checkAuth()
   if (isAuthRoute.value) return
   try {
-    if (authStore.token) await authStore.refreshProfile()
-    await chatStore.initialize()
+    if (authStore.token) {
+      await authStore.refreshProfile()
+      await membershipStore.refresh()
+    }
+    const result = await chatStore.initialize()
+    handleNewSessionResult(result, { silentReuse: true })
   } catch (e) {
     console.error('[chat] failed to initialize chat', e)
   }
@@ -248,7 +331,9 @@ watch(isAuthRoute, async (onAuthPage) => {
   await authStore.refreshProfile()
   systemStore.refresh()
   try {
-    await chatStore.initialize()
+    await membershipStore.refresh()
+    const result = await chatStore.initialize()
+    handleNewSessionResult(result, { silentReuse: true })
   } catch (e) {
     console.error('[chat] failed to init session after login', e)
   }
@@ -383,6 +468,46 @@ watch(isAuthRoute, async (onAuthPage) => {
 
 .new-chat-btn:hover {
   background: var(--color-primary-hover);
+}
+
+.session-quota-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--ui-text-secondary, #6b7280);
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+}
+
+.session-quota-bar.warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.session-quota-bar.full {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.quota-warn-icon {
+  flex-shrink: 0;
+}
+
+.quota-upgrade-link {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .session-list {

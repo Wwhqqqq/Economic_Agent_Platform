@@ -50,6 +50,32 @@ export const useMembershipStore = defineStore('membership', () => {
     return `${q.used} / ${q.limit ?? '∞'}`
   })
 
+  const sessionsQuota = computed(() => quota.value?.sessions ?? null)
+
+  const sessionsAtLimit = computed(() => {
+    const q = sessionsQuota.value
+    if (!q || q.limit == null) return false
+    return q.used >= q.limit
+  })
+
+  const sessionsNearLimit = computed(() => {
+    const q = sessionsQuota.value
+    if (!q || q.limit == null) return false
+    return q.used >= Math.max(1, q.limit - 2)
+  })
+
+  const sessionsUsageLabel = computed(() => {
+    const q = sessionsQuota.value
+    if (!q || q.limit == null) return ''
+    return `对话额度 ${q.used} / ${q.limit}`
+  })
+
+  const dailyMessagesUsageLabel = computed(() => {
+    const q = quota.value?.daily_messages
+    if (!q || q.limit == null) return ''
+    return `今日消息 ${q.used} / ${q.limit}`
+  })
+
   async function refresh() {
     if (!authStore.token) {
       loaded.value = true
@@ -97,6 +123,11 @@ export const useMembershipStore = defineStore('membership', () => {
     quota,
     quotaSessionsLabel,
     quotaDocumentsLabel,
+    sessionsQuota,
+    sessionsAtLimit,
+    sessionsNearLimit,
+    sessionsUsageLabel,
+    dailyMessagesUsageLabel,
     refresh,
     redeem,
   }

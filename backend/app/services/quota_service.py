@@ -149,18 +149,20 @@ async def check_quota(
 
     if action == "create_session":
         used = await count_user_sessions_with_messages(db, user_id)
-        if used >= limits["max_sessions"]:
+        limit = limits["max_sessions"]
+        if used >= limit:
             raise QuotaExceededError(
                 "max_sessions",
-                f"会话数已达上限（{limits['max_sessions']}），请升级会员或删除旧会话",
+                f"有记录的对话已达上限（{used}/{limit}）。请删除不再需要的对话，或升级会员提升配额",
             )
 
     elif action == "upload_document":
         used = await count_user_documents(db, user_id)
-        if used >= limits["max_documents"]:
+        limit = limits["max_documents"]
+        if used >= limit:
             raise QuotaExceededError(
                 "max_documents",
-                f"知识库文档数已达上限（{limits['max_documents']}），请升级会员",
+                f"知识库文档数已达上限（{used}/{limit}），请升级会员",
             )
         if file_size_bytes is not None:
             max_bytes = limits["max_file_mb"] * 1024 * 1024
@@ -172,10 +174,11 @@ async def check_quota(
 
     elif action == "daily_message":
         used = await count_user_daily_messages(db, user_id)
-        if used >= limits["daily_messages"]:
+        limit = limits["daily_messages"]
+        if used >= limit:
             raise QuotaExceededError(
                 "daily_messages",
-                f"今日消息数已达上限（{limits['daily_messages']}），请明天再试或升级会员",
+                f"今日消息数已达上限（{used}/{limit}），请明天再试或升级会员",
             )
 
 
