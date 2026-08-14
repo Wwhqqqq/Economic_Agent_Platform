@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div :class="['app-container', { 'auth-layout': isAuthRoute }]">
     <aside v-if="!isAuthRoute" class="sidebar">
       <div class="sidebar-header">
@@ -8,7 +8,7 @@
           </div>
           <div>
             <span class="logo">{{ platformStore.platformName }}</span>
-            <span class="logo-sub">企业智能体平台</span>
+            <span class="logo-sub">会计通用工作台</span>
           </div>
         </div>
         <div class="status-pill">

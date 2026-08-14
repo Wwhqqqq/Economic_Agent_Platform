@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="login-page">
     <div class="login-bg" aria-hidden="true">
       <div class="bg-grid"></div>
@@ -24,7 +24,7 @@
         <div class="logo-icon">
           <el-icon :size="28"><Monitor /></el-icon>
         </div>
-        <h1>会计学通用工作台</h1>
+        <h1>会计通用工作台</h1>
         <p class="subtitle">登录您的账号，进入多用户智能体协作空间</p>
         <p v-if="isSwitchMode" class="switch-hint">请登录其他账号</p>
       </div>

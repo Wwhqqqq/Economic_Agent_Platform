@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+﻿import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { fetchCatalog } from '../api/client'
 import { setCatalogLabels } from '../utils/displayLabels'
@@ -14,7 +14,7 @@ export interface ExecutionMode {
 
 export const usePlatformStore = defineStore('platform', () => {
   const loaded = ref(false)
-  const platformName = ref('会计学通用工作台')
+  const platformName = ref('会计通用工作台')
   const productCode = ref('AgentWorkbench')
   const description = ref('')
   const executionModes = ref<ExecutionMode[]>([])

@@ -23,7 +23,7 @@ def smtp_configured() -> bool:
 
 async def send_verification_email(to_email: str, code: str) -> None:
     """Send 4-digit registration verification code."""
-    subject = "【会计学通用工作台】注册验证码"
+    subject = "【会计通用工作台】注册验证码"
     body = f"{code}\n验证码 60 秒内有效"
 
     if smtp_configured():
