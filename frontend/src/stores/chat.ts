@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import axios from 'axios'
 import { ChatWebSocket } from '../api/websocket'
 import { clearSessionMessages, deleteSession as apiDeleteSession, fetchSessions, fetchSessionMessages, renameSession, createSession as apiCreateSession } from '../api/client'
 
@@ -264,15 +265,41 @@ export const useChatStore = defineStore('chat', () => {
     return messages.value.length === 0 && getCurrentSessionServerMessageCount() === 0
   }
 
+  function isQuotaOrRateLimitError(e: unknown) {
+    return axios.isAxiosError(e) && e.response?.status === 429
+  }
+
+  async function adoptFallbackSession(): Promise<boolean> {
+    if (sessionId.value) {
+      messages.value = []
+      const ok = await connect({ silent: true })
+      return ok
+    }
+    if (sessions.value.length > 0) {
+      await switchSession(sessions.value[0].session_id)
+      return true
+    }
+    return false
+  }
+
   async function createSessionOnServer(options: {
     force_new?: boolean
     exclude_session_id?: string
   } = {}) {
-    const data = await apiCreateSession('新对话', options)
-    sessionId.value = data.session_id
-    await connect({ silent: true })
-    await loadSessions()
-    return data.session_id
+    try {
+      const data = await apiCreateSession('新对话', options)
+      sessionId.value = data.session_id
+      await connect({ silent: true })
+      await loadSessions()
+      return data.session_id
+    } catch (e) {
+      if (isQuotaOrRateLimitError(e)) {
+        console.warn('[chat] create session quota hit, adopting fallback session', e)
+        const adopted = await adoptFallbackSession()
+        if (adopted) return sessionId.value
+      }
+      throw e
+    }
   }
 
   async function newSession(options: { userInitiated?: boolean } = {}) {
@@ -310,7 +337,8 @@ export const useChatStore = defineStore('chat', () => {
       await createSessionOnServer()
     } catch (e) {
       console.error('[chat] newSession failed', e)
-      if (!sessionId.value) {
+      const adopted = await adoptFallbackSession()
+      if (!adopted && !sessionId.value) {
         throw e
       }
     }

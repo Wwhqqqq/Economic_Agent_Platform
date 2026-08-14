@@ -54,6 +54,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function syncFromBackend(sessionId: string) {
+    if (!sessionId?.trim()) return
     try {
       const ctx = await fetchSessionContext(sessionId)
       applyContext(ctx)

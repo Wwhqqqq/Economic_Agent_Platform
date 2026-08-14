@@ -303,11 +303,9 @@ async def create_session(
             "created_at": None,
             "note": "anonymous_mode",
         }
-    try:
-        await check_quota(db, "create_session", uid, user.user_type)
-    except QuotaExceededError as exc:
-        from app.services.quota_service import quota_http_exception
-        raise quota_http_exception(exc) from exc
+
+    session = None
+    needs_new_row = False
 
     if req.force_new and req.exclude_session_id:
         excluded = await chat_session_service.get_owned_session(db, req.exclude_session_id, uid)
@@ -318,18 +316,31 @@ async def create_session(
             if excluded_count == 0:
                 session = excluded
             else:
-                reusable = await chat_session_service.find_reusable_empty_session(
+                session = await chat_session_service.find_reusable_empty_session(
                     db, uid, exclude_ids=[req.exclude_session_id]
                 )
-                session = reusable or await chat_session_service.create_session(db, uid, req.title)
+                if not session:
+                    needs_new_row = True
         else:
-            session = await chat_session_service.create_session(db, uid, req.title)
+            needs_new_row = True
     else:
-        reusable = await chat_session_service.find_reusable_empty_session(db, uid)
-        if reusable:
-            session = reusable
-        else:
+        session = await chat_session_service.find_reusable_empty_session(db, uid)
+        if not session:
+            needs_new_row = True
+
+    if needs_new_row:
+        try:
+            await check_quota(db, "create_session", uid, user.user_type)
+        except QuotaExceededError as exc:
+            from app.services.quota_service import quota_http_exception
+            fallback = await chat_session_service.find_reusable_empty_session(db, uid)
+            if fallback:
+                session = fallback
+            else:
+                raise quota_http_exception(exc) from exc
+        if session is None:
             session = await chat_session_service.create_session(db, uid, req.title)
+
     return {
         "session_id": session.id,
         "title": session.title,

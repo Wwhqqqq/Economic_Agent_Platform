@@ -68,10 +68,25 @@ async def get_quota_limits(db: AsyncSession, user_type: str) -> dict[str, int]:
 
 
 async def count_user_sessions(db: AsyncSession, user_id: int) -> int:
+    """Count non-deleted sessions (includes empty draft sessions)."""
     result = await db.execute(
         select(func.count())
         .select_from(ChatSession)
         .where(ChatSession.user_id == user_id, ChatSession.status != "deleted")
+    )
+    return int(result.scalar() or 0)
+
+
+async def count_user_sessions_with_messages(db: AsyncSession, user_id: int) -> int:
+    """Count sessions that have at least one persisted message (quota-relevant)."""
+    result = await db.execute(
+        select(func.count(func.distinct(ChatMessage.session_id)))
+        .select_from(ChatMessage)
+        .join(ChatSession, ChatMessage.session_id == ChatSession.id)
+        .where(
+            ChatSession.user_id == user_id,
+            ChatSession.status != "deleted",
+        )
     )
     return int(result.scalar() or 0)
 
@@ -96,7 +111,7 @@ async def get_quota_snapshot(
     db: AsyncSession, user_id: int, user_type: str
 ) -> dict[str, Any]:
     limits = await get_quota_limits(db, user_type)
-    sessions_used = await count_user_sessions(db, user_id)
+    sessions_used = await count_user_sessions_with_messages(db, user_id)
     documents_used = await count_user_documents(db, user_id)
     daily_used = await count_user_daily_messages(db, user_id)
 
@@ -133,7 +148,7 @@ async def check_quota(
     limits = await get_quota_limits(db, user_type)
 
     if action == "create_session":
-        used = await count_user_sessions(db, user_id)
+        used = await count_user_sessions_with_messages(db, user_id)
         if used >= limits["max_sessions"]:
             raise QuotaExceededError(
                 "max_sessions",

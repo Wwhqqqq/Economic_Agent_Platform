@@ -362,6 +362,7 @@ onMounted(async () => {
 watch(() => route.query, applyRouteSummon)
 
 async function applyRouteSummon() {
+  if (!chatStore.sessionId) return
   await settingsStore.syncFromBackend(chatStore.sessionId)
   const summonId = route.query.summon as string | undefined
   if (!summonId) return
