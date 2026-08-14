@@ -187,7 +187,17 @@ export const useChatStore = defineStore('chat', () => {
     await useSettingsStore().syncFromBackend(id)
   }
 
+  function isCurrentSessionEmpty() {
+    return messages.value.length === 0
+  }
+
   async function newSession() {
+    if (isCurrentSessionEmpty() && sessionId.value) {
+      messages.value = []
+      connect({ silent: true })
+      return
+    }
+
     messages.value = []
     if (ws.value) ws.value.disconnect()
 
@@ -271,12 +281,44 @@ export const useChatStore = defineStore('chat', () => {
 
   function exportMessage(msg: ChatMessage) {
     const blob = new Blob([msg.content], { type: 'text/markdown;charset=utf-8' })
+    downloadTextFile(blob, `report_${Date.now()}.md`)
+  }
+
+  function downloadTextFile(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `report_${Date.now()}.md`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function sanitizeFilename(name: string) {
+    return name.replace(/[\\/:*?"<>|]/g, '_').trim() || '对话'
+  }
+
+  async function exportSession(id: string) {
+    const data = await fetchSessionMessages(id)
+    const meta = sessions.value.find(s => s.session_id === id)
+    const title = meta?.title || '对话'
+    const lines = [`# ${title}`, '']
+    for (const m of data.messages || []) {
+      const label = m.role === 'user' ? '用户' : m.role === 'assistant' ? '助手' : '系统'
+      lines.push(`## ${label}`, '', m.content || '', '')
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' })
+    downloadTextFile(blob, `${sanitizeFilename(title)}.md`)
+  }
+
+  async function deleteSession(id: string) {
+    await clearSession(id)
+    if (sessionId.value === id) {
+      sessionId.value = ''
+      messages.value = []
+      if (ws.value) ws.value.disconnect()
+      await newSession()
+    }
+    await loadSessions()
   }
 
   function disconnect() {
@@ -304,5 +346,8 @@ export const useChatStore = defineStore('chat', () => {
     sendContextClear,
     clearChat,
     exportMessage,
+    exportSession,
+    deleteSession,
+    isCurrentSessionEmpty,
   }
 })

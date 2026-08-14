@@ -46,6 +46,30 @@ class ChatSessionService:
         )
         return result.scalar_one_or_none()
 
+    async def find_reusable_empty_session(
+        self,
+        db: AsyncSession,
+        user_id: int,
+    ) -> Optional[ChatSession]:
+        """Return the user's latest active session that has no messages."""
+        msg_count = (
+            select(ChatMessage.session_id, func.count(ChatMessage.id).label("cnt"))
+            .group_by(ChatMessage.session_id)
+            .subquery()
+        )
+        result = await db.execute(
+            select(ChatSession)
+            .outerjoin(msg_count, ChatSession.id == msg_count.c.session_id)
+            .where(
+                ChatSession.user_id == user_id,
+                ChatSession.status != "deleted",
+                func.coalesce(msg_count.c.cnt, 0) == 0,
+            )
+            .order_by(ChatSession.updated_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def list_sessions(self, db: AsyncSession, user_id: int) -> list[dict]:
         msg_count = (
             select(ChatMessage.session_id, func.count(ChatMessage.id).label("cnt"))
@@ -55,7 +79,11 @@ class ChatSessionService:
         result = await db.execute(
             select(ChatSession, func.coalesce(msg_count.c.cnt, 0))
             .outerjoin(msg_count, ChatSession.id == msg_count.c.session_id)
-            .where(ChatSession.user_id == user_id, ChatSession.status != "deleted")
+            .where(
+                ChatSession.user_id == user_id,
+                ChatSession.status != "deleted",
+                func.coalesce(msg_count.c.cnt, 0) > 0,
+            )
             .order_by(ChatSession.updated_at.desc())
         )
         rows = result.all()

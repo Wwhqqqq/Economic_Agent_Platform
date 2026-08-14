@@ -24,18 +24,36 @@
           <span>新建对话</span>
         </button>
         <div class="session-list">
-          <div
+          <el-dropdown
             v-for="s in chatStore.sessions"
             :key="s.session_id"
-            :class="['session-item', { active: s.session_id === chatStore.sessionId && isChatRoute }]"
-            @click="selectSession(s.session_id)"
+            trigger="contextmenu"
+            placement="bottom-start"
+            @command="(cmd: string) => handleSessionMenu(cmd, s.session_id)"
           >
-            <el-icon class="session-icon"><ChatLineRound /></el-icon>
-            <div class="session-body">
-              <div class="session-title">{{ s.title || '新对话' }}</div>
-              <div class="session-meta">{{ s.message_count }} 条消息</div>
+            <div
+              :class="['session-item', { active: s.session_id === chatStore.sessionId && isChatRoute }]"
+              @click="selectSession(s.session_id)"
+            >
+              <el-icon class="session-icon"><ChatLineRound /></el-icon>
+              <div class="session-body">
+                <div class="session-title">{{ s.title || '新对话' }}</div>
+                <div class="session-meta">{{ s.message_count }} 条消息</div>
+              </div>
             </div>
-          </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="export">
+                  <el-icon><Download /></el-icon>
+                  导出对话
+                </el-dropdown-item>
+                <el-dropdown-item command="delete" divided>
+                  <el-icon><Delete /></el-icon>
+                  删除对话
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <div v-if="chatStore.sessions.length === 0" class="session-empty">暂无历史对话</div>
         </div>
 
@@ -118,7 +136,10 @@ import {
   Setting,
   ArrowRight,
   WarningFilled,
+  Download,
+  Delete,
 } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { usePlatformStore } from './stores/platform'
 import { useSystemStore } from './stores/system'
 import { useChatStore } from './stores/chat'
@@ -172,6 +193,34 @@ async function createSession() {
 async function selectSession(id: string) {
   if (route.path !== '/') await router.push('/')
   if (id !== chatStore.sessionId) chatStore.switchSession(id)
+}
+
+async function handleSessionMenu(command: string, sessionId: string) {
+  if (command === 'export') {
+    try {
+      await chatStore.exportSession(sessionId)
+      ElMessage.success('对话已导出')
+    } catch (e) {
+      ElMessage.error(e instanceof Error ? e.message : '导出失败')
+    }
+    return
+  }
+  if (command === 'delete') {
+    const target = chatStore.sessions.find(s => s.session_id === sessionId)
+    try {
+      await ElMessageBox.confirm(
+        `确定删除「${target?.title || '新对话'}」？删除后无法恢复。`,
+        '删除对话',
+        { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+      )
+      await chatStore.deleteSession(sessionId)
+      ElMessage.success('对话已删除')
+    } catch (e) {
+      if (e !== 'cancel' && e !== 'close') {
+        ElMessage.error(e instanceof Error ? e.message : '删除失败')
+      }
+    }
+  }
 }
 
 onMounted(async () => {
@@ -337,6 +386,11 @@ watch(isAuthRoute, async (onAuthPage) => {
   margin-bottom: 10px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--sidebar-divider);
+}
+
+.session-list :deep(.el-dropdown) {
+  display: block;
+  width: 100%;
 }
 
 .session-item {

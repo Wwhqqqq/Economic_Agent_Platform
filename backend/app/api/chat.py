@@ -304,7 +304,11 @@ async def create_session(
     except QuotaExceededError as exc:
         from app.services.quota_service import quota_http_exception
         raise quota_http_exception(exc) from exc
-    session = await chat_session_service.create_session(db, uid, req.title)
+    reusable = await chat_session_service.find_reusable_empty_session(db, uid)
+    if reusable:
+        session = reusable
+    else:
+        session = await chat_session_service.create_session(db, uid, req.title)
     return {
         "session_id": session.id,
         "title": session.title,
@@ -334,8 +338,9 @@ async def clear_session(
         if not owned:
             raise HTTPException(status_code=403, detail="无权访问该会话")
         await chat_session_service.delete_messages(db, session_id, user.user_id)
+        await chat_session_service.soft_delete_session(db, session_id, user.user_id)
         result = await memory_manager.clear_session_all(session_id, user_id=user.user_id)
-        return {"status": "cleared", **result}
+        return {"status": "deleted", **result}
     result = await memory_manager.clear_session_all(session_id)
     return {"status": "cleared", **result}
 
