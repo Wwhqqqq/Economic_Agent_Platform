@@ -25,7 +25,7 @@
         </button>
         <div class="session-list">
           <el-dropdown
-            v-for="s in chatStore.sessions"
+            v-for="s in visibleSessions"
             :key="s.session_id"
             trigger="contextmenu"
             placement="bottom-start"
@@ -55,7 +55,7 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          <div v-if="chatStore.sessions.length === 0" class="session-empty">暂无历史对话</div>
+          <div v-if="visibleSessions.length === 0" class="session-empty">暂无历史对话</div>
         </div>
 
         <div class="nav-section-label">能力中心</div>
@@ -186,6 +186,10 @@ const showStatusBanner = computed(() => {
   return s && s !== 'healthy'
 })
 
+const visibleSessions = computed(() =>
+  chatStore.sessions.filter(s => (s.message_count ?? 0) > 0),
+)
+
 async function createSession() {
   if (route.path !== '/') await router.push('/')
   await chatStore.newSession({ userInitiated: true })
@@ -231,12 +235,11 @@ onMounted(async () => {
   }
   if (!authStore.checked) await authStore.checkAuth()
   if (isAuthRoute.value) return
-  if (authStore.authEnabled && authStore.token) {
-    await authStore.refreshProfile()
-    await chatStore.loadSessions()
-    await chatStore.newSession()
-  } else {
-    chatStore.loadSessions()
+  try {
+    if (authStore.token) await authStore.refreshProfile()
+    await chatStore.initialize()
+  } catch (e) {
+    console.error('[chat] failed to initialize chat', e)
   }
 })
 
@@ -245,8 +248,7 @@ watch(isAuthRoute, async (onAuthPage) => {
   await authStore.refreshProfile()
   systemStore.refresh()
   try {
-    await chatStore.loadSessions()
-    await chatStore.newSession()
+    await chatStore.initialize()
   } catch (e) {
     console.error('[chat] failed to init session after login', e)
   }

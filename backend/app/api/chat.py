@@ -97,177 +97,178 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
             if data.get("type") != "message":
                 continue
 
-            user_input = data.get("input", "")
-            attachments = data.get("attachments") or []
-            if (
-                not user_input.strip()
-                and not attachments
-                and not data.get("clear_skill")
-                and not data.get("clear_expert")
-            ):
-                await websocket.send_json({
-                    "type": "error",
-                    "data": {"message": "Empty input"},
-                })
-                continue
-
-            session_ctx = get_session_context(session_id)
-
-            if data.get("clear_expert"):
-                clear_session_expert(session_id)
-            if data.get("expert_id"):
-                set_session_expert(session_id, data.get("expert_id"))
-            if data.get("clear_skill"):
-                clear_session_skill(session_id)
-
-            clear_only = (
-                not user_input.strip()
-                and not attachments
-                and (data.get("clear_skill") or data.get("clear_expert"))
-            )
-            if clear_only:
-                from app.core.session_context import session_context_to_public
-                await websocket.send_json({
-                    "type": "context_updated",
-                    "data": session_context_to_public(session_id),
-                })
-                continue
-
-            parsed_skill, parsed_message = parse_slash_command(user_input)
-            user_message = parsed_message if parsed_skill else user_input
-            if not user_message.strip() and attachments:
-                user_message = "请分析附件。"
-
-            if parsed_skill:
-                if not skill_registry.get(parsed_skill):
-                    await websocket.send_json({
-                        "type": "error",
-                        "data": {"message": f"未找到技能 `{parsed_skill}`"},
-                    })
-                    continue
-                user_input = user_message
-                if not user_input.strip() and not attachments:
-                    await websocket.send_json({
-                        "type": "error",
-                        "data": {"message": "请在 `/技能名` 后补充任务描述"},
-                    })
-                    continue
-
-            user_input = user_message
-
-            msg_ctx = MessageContext(
-                parsed_slash_skill=parsed_skill,
-                skill=data.get("skill"),
-                mode=data.get("mode"),
-                expert_id=data.get("expert_id"),
-                skill_invocation=data.get("skill_invocation"),
-                clear_skill=bool(data.get("clear_skill")),
-                clear_expert=bool(data.get("clear_expert")),
-                user_input=user_input,
-            )
-
-            resolved = resolve(session_ctx, msg_ctx)
-            apply_to_session(session_ctx, resolved)
-
-            mode = normalize_execution_mode(resolved.mode)
-
             try:
-                assert_membership_for_resolved(
-                    user,
-                    mode=mode,
-                    skill=resolved.skill or parsed_skill,
-                    expert_id=resolved.expert_id or data.get("expert_id"),
-                    requested_mode=data.get("mode"),
-                )
-            except MembershipRequiredError as exc:
-                await websocket.send_json({
-                    "type": "error",
-                    "code": "MEMBERSHIP_REQUIRED",
-                    "data": {"message": exc.message, "upgrade_url": "/membership"},
-                })
-                continue
+                user_input = data.get("input", "")
+                attachments = data.get("attachments") or []
+                if (
+                    not user_input.strip()
+                    and not attachments
+                    and not data.get("clear_skill")
+                    and not data.get("clear_expert")
+                ):
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": "Empty input"},
+                    })
+                    continue
 
-            if user.user_id:
-                async with session_scope() as db:
-                    try:
-                        await check_quota(db, "daily_message", user.user_id, user.user_type)
-                    except QuotaExceededError as exc:
+                session_ctx = get_session_context(session_id)
+
+                if data.get("clear_expert"):
+                    clear_session_expert(session_id)
+                if data.get("expert_id"):
+                    set_session_expert(session_id, data.get("expert_id"))
+                if data.get("clear_skill"):
+                    clear_session_skill(session_id)
+
+                clear_only = (
+                    not user_input.strip()
+                    and not attachments
+                    and (data.get("clear_skill") or data.get("clear_expert"))
+                )
+                if clear_only:
+                    from app.core.session_context import session_context_to_public
+                    await websocket.send_json({
+                        "type": "context_updated",
+                        "data": session_context_to_public(session_id),
+                    })
+                    continue
+
+                parsed_skill, parsed_message = parse_slash_command(user_input)
+                user_message = parsed_message if parsed_skill else user_input
+                if not user_message.strip() and attachments:
+                    user_message = "请分析附件。"
+
+                if parsed_skill:
+                    if not skill_registry.get(parsed_skill):
                         await websocket.send_json({
                             "type": "error",
-                            "code": "QUOTA_EXCEEDED",
-                            "data": {"message": exc.message, "quota": exc.quota},
+                            "data": {"message": f"未找到技能 `{parsed_skill}`"},
+                        })
+                        continue
+                    user_input = user_message
+                    if not user_input.strip() and not attachments:
+                        await websocket.send_json({
+                            "type": "error",
+                            "data": {"message": "请在 `/技能名` 后补充任务描述"},
                         })
                         continue
 
-            set_connection_context(
-                ConnectionContext(
-                    user_id=user.user_id,
-                    user_type=user.user_type,
-                    session_id=session_id,
-                    active_skill=resolved.skill,
+                user_input = user_message
+
+                msg_ctx = MessageContext(
+                    parsed_slash_skill=parsed_skill,
+                    skill=data.get("skill"),
+                    mode=data.get("mode"),
+                    expert_id=data.get("expert_id"),
+                    skill_invocation=data.get("skill_invocation"),
+                    clear_skill=bool(data.get("clear_skill")),
+                    clear_expert=bool(data.get("clear_expert")),
+                    user_input=user_input,
                 )
-            )
 
-            provider = data.get("provider") or app_config.agent.default_provider
-            resolved_attachments = attachments if isinstance(attachments, list) else []
-            if resolved_attachments and user.user_id:
-                async with session_scope() as db:
-                    resolved_attachments = await resolve_chat_attachments(
-                        db, user.user_id, resolved_attachments
+                resolved = resolve(session_ctx, msg_ctx)
+                apply_to_session(session_ctx, resolved)
+
+                mode = normalize_execution_mode(resolved.mode)
+
+                try:
+                    assert_membership_for_resolved(
+                        user,
+                        mode=mode,
+                        skill=resolved.skill or parsed_skill,
+                        expert_id=resolved.expert_id or data.get("expert_id"),
+                        requested_mode=data.get("mode"),
                     )
+                except MembershipRequiredError as exc:
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "MEMBERSHIP_REQUIRED",
+                        "data": {"message": exc.message, "upgrade_url": "/membership"},
+                    })
+                    continue
 
-            max_iterations = app_config.agent.max_iterations
-            if resolved_attachments:
-                max_iterations = min(max_iterations, 5)
+                if user.user_id:
+                    async with session_scope() as db:
+                        try:
+                            await check_quota(db, "daily_message", user.user_id, user.user_type)
+                        except QuotaExceededError as exc:
+                            await websocket.send_json({
+                                "type": "error",
+                                "code": "QUOTA_EXCEEDED",
+                                "data": {"message": exc.message, "quota": exc.quota},
+                            })
+                            continue
 
-            agent_config = AgentConfig(
-                session_id=session_id,
-                user_id=user.user_id if user.user_id else None,
-                user_type=user.user_type,
-                active_skill=resolved.skill,
-                expert_id=resolved.expert_id,
-                skill_invocation=resolved.skill_invocation,
-                context_strategy=resolved.context_strategy,
-                provider=provider,
-                model=data.get("model"),
-                temperature=data.get("temperature", 0.7),
-                streaming=True,
-                system_prompt=resolved.system_prompt,
-                engine=resolved.engine,
-                team_protocol=resolved.team_protocol,
-                team_class=resolved.team_class,
-                attachments=resolved_attachments,
-                max_iterations=max_iterations,
-            )
+                set_connection_context(
+                    ConnectionContext(
+                        user_id=user.user_id,
+                        user_type=user.user_type,
+                        session_id=session_id,
+                        active_skill=resolved.skill,
+                    )
+                )
 
-            timeout = app_config.agent.timeout_seconds
+                provider = data.get("provider") or app_config.agent.default_provider
+                resolved_attachments = attachments if isinstance(attachments, list) else []
+                if resolved_attachments and user.user_id:
+                    async with session_scope() as db:
+                        resolved_attachments = await resolve_chat_attachments(
+                            db, user.user_id, resolved_attachments
+                        )
 
-            try:
-                async def _stream():
-                    async for event in orchestrator.stream(user_input, agent_config, mode, user=user):
-                        await websocket.send_json({
-                            "type": event.type.value,
-                            "data": event.data,
-                            "metadata": event.metadata,
-                        })
+                max_iterations = app_config.agent.max_iterations
+                if resolved_attachments:
+                    max_iterations = min(max_iterations, 5)
 
-                await asyncio.wait_for(_stream(), timeout=timeout)
-            except MembershipRequiredError as exc:
-                await websocket.send_json({
-                    "type": "error",
-                    "code": "MEMBERSHIP_REQUIRED",
-                    "data": {"message": exc.message, "upgrade_url": "/membership"},
-                })
-            except asyncio.TimeoutError:
-                await websocket.send_json({
-                    "type": "error",
-                    "data": {"message": f"执行超时（>{timeout}s），请简化任务后重试"},
-                })
-            except Exception as e:
-                await websocket.send_json({
-                    "type": "error",
-                    "data": {"message": str(e)},
-                })
+                agent_config = AgentConfig(
+                    session_id=session_id,
+                    user_id=user.user_id if user.user_id else None,
+                    user_type=user.user_type,
+                    active_skill=resolved.skill,
+                    expert_id=resolved.expert_id,
+                    skill_invocation=resolved.skill_invocation,
+                    context_strategy=resolved.context_strategy,
+                    provider=provider,
+                    model=data.get("model"),
+                    temperature=data.get("temperature", 0.7),
+                    streaming=True,
+                    system_prompt=resolved.system_prompt,
+                    engine=resolved.engine,
+                    team_protocol=resolved.team_protocol,
+                    team_class=resolved.team_class,
+                    attachments=resolved_attachments,
+                    max_iterations=max_iterations,
+                )
+
+                timeout = app_config.agent.timeout_seconds
+
+                try:
+                    async def _stream():
+                        async for event in orchestrator.stream(user_input, agent_config, mode, user=user):
+                            await websocket.send_json({
+                                "type": event.type.value,
+                                "data": event.data,
+                                "metadata": event.metadata,
+                            })
+
+                    await asyncio.wait_for(_stream(), timeout=timeout)
+                except MembershipRequiredError as exc:
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "MEMBERSHIP_REQUIRED",
+                        "data": {"message": exc.message, "upgrade_url": "/membership"},
+                    })
+                except asyncio.TimeoutError:
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": f"执行超时（>{timeout}s），请简化任务后重试"},
+                    })
+                except Exception as e:
+                    await websocket.send_json({
+                        "type": "error",
+                        "data": {"message": str(e)},
+                    })
             finally:
                 await websocket.send_json({"type": "done", "data": {}})
 

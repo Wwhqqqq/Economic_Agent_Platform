@@ -90,17 +90,16 @@ class ChatSessionService:
 
     async def list_sessions(self, db: AsyncSession, user_id: int) -> list[dict]:
         msg_count = (
-            select(ChatMessage.session_id, func.count(ChatMessage.id).label("cnt"))
-            .group_by(ChatMessage.session_id)
-            .subquery()
+            select(func.count(ChatMessage.id))
+            .where(ChatMessage.session_id == ChatSession.id)
+            .correlate(ChatSession)
+            .scalar_subquery()
         )
         result = await db.execute(
-            select(ChatSession, func.coalesce(msg_count.c.cnt, 0))
-            .outerjoin(msg_count, ChatSession.id == msg_count.c.session_id)
+            select(ChatSession, msg_count.label("message_count"))
             .where(
                 ChatSession.user_id == user_id,
                 ChatSession.status != "deleted",
-                func.coalesce(msg_count.c.cnt, 0) > 0,
             )
             .order_by(ChatSession.updated_at.desc())
         )
@@ -114,6 +113,7 @@ class ChatSessionService:
                 "updated_at": session.updated_at.isoformat() if session.updated_at else None,
             }
             for session, count in rows
+            if int(count or 0) > 0
         ]
 
     async def rename_session(

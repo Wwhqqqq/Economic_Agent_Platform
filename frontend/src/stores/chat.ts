@@ -44,6 +44,29 @@ export const useChatStore = defineStore('chat', () => {
   const ws = ref<ChatWebSocket | null>(null)
   const sessionId = ref('')
   const membershipRequiredMessage = ref<string | null>(null)
+  let responseWatchdog: ReturnType<typeof setTimeout> | null = null
+
+  const RESPONSE_TIMEOUT_MS = 125_000
+
+  function clearResponseWatchdog() {
+    if (responseWatchdog) {
+      clearTimeout(responseWatchdog)
+      responseWatchdog = null
+    }
+  }
+
+  function startResponseWatchdog() {
+    clearResponseWatchdog()
+    responseWatchdog = setTimeout(() => {
+      clearStreamingState({ removeEmptyAssistant: true })
+      messages.value.push({
+        id: 'err_' + Date.now(),
+        role: 'system',
+        content: '响应超时，请检查网络或稍后重试',
+        timestamp: Date.now(),
+      })
+    }, RESPONSE_TIMEOUT_MS)
+  }
 
   function bindWsHandlers(silent: boolean) {
     if (!ws.value) return
@@ -114,6 +137,7 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     ws.value.on('final', (data) => {
+      clearResponseWatchdog()
       const last = messages.value[messages.value.length - 1]
       if (last?.role === 'assistant') {
         if (data.output && data.output !== last.content) {
@@ -127,6 +151,7 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     ws.value.on('done', () => {
+      clearResponseWatchdog()
       isLoading.value = false
       const last = messages.value[messages.value.length - 1]
       if (last?.role === 'assistant') {
@@ -137,6 +162,7 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     ws.value.on('error', (data) => {
+      clearResponseWatchdog()
       const wasSending = isLoading.value
       clearStreamingState({ removeEmptyAssistant: true })
       if (data.code === 'MEMBERSHIP_REQUIRED') {
@@ -195,8 +221,17 @@ export const useChatStore = defineStore('chat', () => {
   async function loadSessions() {
     try {
       const data = await fetchSessions()
-      sessions.value = data.sessions || []
-    } catch (e) { console.error(e) }
+      sessions.value = (data.sessions || []).filter(
+        (s: SessionItem) => (s.message_count ?? 0) > 0,
+      )
+    } catch (e) {
+      console.error('[chat] loadSessions failed', e)
+    }
+  }
+
+  async function initialize() {
+    await loadSessions()
+    await newSession()
   }
 
   async function switchSession(id: string) {
@@ -350,8 +385,10 @@ export const useChatStore = defineStore('chat', () => {
       })
 
       isLoading.value = true
+      startResponseWatchdog()
       await ws.value!.send(content, options)
     } catch (e) {
+      clearResponseWatchdog()
       clearStreamingState({ removeEmptyAssistant: true })
       messages.value.push({
         id: 'err_' + Date.now(),
@@ -433,6 +470,7 @@ export const useChatStore = defineStore('chat', () => {
     connect,
     disconnect,
     loadSessions,
+    initialize,
     switchSession,
     newSession,
     renameCurrentSession,
