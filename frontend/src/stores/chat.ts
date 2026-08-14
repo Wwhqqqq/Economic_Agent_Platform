@@ -187,11 +187,40 @@ export const useChatStore = defineStore('chat', () => {
     await useSettingsStore().syncFromBackend(id)
   }
 
-  function isCurrentSessionEmpty() {
-    return messages.value.length === 0
+  function getCurrentSessionServerMessageCount() {
+    if (!sessionId.value) return 0
+    const meta = sessions.value.find(s => s.session_id === sessionId.value)
+    return meta?.message_count ?? 0
   }
 
-  async function newSession() {
+  function isCurrentSessionEmpty() {
+    return messages.value.length === 0 && getCurrentSessionServerMessageCount() === 0
+  }
+
+  async function newSession(options: { userInitiated?: boolean } = {}) {
+    const userInitiated = options.userInitiated ?? false
+    const currentId = sessionId.value
+
+    if (userInitiated) {
+      if (isCurrentSessionEmpty() && currentId) {
+        messages.value = []
+        connect({ silent: true })
+        return
+      }
+
+      messages.value = []
+      if (ws.value) ws.value.disconnect()
+
+      const data = await apiCreateSession('新对话', {
+        force_new: true,
+        exclude_session_id: currentId || undefined,
+      })
+      sessionId.value = data.session_id
+      connect({ silent: true })
+      await loadSessions()
+      return
+    }
+
     if (isCurrentSessionEmpty() && sessionId.value) {
       messages.value = []
       connect({ silent: true })

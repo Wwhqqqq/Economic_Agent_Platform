@@ -188,7 +188,7 @@ const showStatusBanner = computed(() => {
 
 async function createSession() {
   if (route.path !== '/') await router.push('/')
-  chatStore.newSession()
+  await chatStore.newSession({ userInitiated: true })
 }
 
 async function selectSession(id: string) {

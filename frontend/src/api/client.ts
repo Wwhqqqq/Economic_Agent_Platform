@@ -43,8 +43,15 @@ export async function register(payload: {
   return data
 }
 
-export async function createSession(title = '新对话') {
-  const { data } = await api.post('/sessions', { title })
+export async function createSession(
+  title = '新对话',
+  options: { force_new?: boolean; exclude_session_id?: string } = {},
+) {
+  const { data } = await api.post('/sessions', {
+    title,
+    force_new: options.force_new ?? false,
+    exclude_session_id: options.exclude_session_id ?? null,
+  })
   return data
 }
 

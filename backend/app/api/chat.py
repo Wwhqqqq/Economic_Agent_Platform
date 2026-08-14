@@ -45,6 +45,8 @@ class SessionRenameRequest(BaseModel):
 
 class SessionCreateRequest(BaseModel):
     title: str = "新对话"
+    force_new: bool = False
+    exclude_session_id: str | None = None
 
 
 async def _ws_authenticate(websocket: WebSocket, session_id: str) -> UserContext:
@@ -305,11 +307,28 @@ async def create_session(
     except QuotaExceededError as exc:
         from app.services.quota_service import quota_http_exception
         raise quota_http_exception(exc) from exc
-    reusable = await chat_session_service.find_reusable_empty_session(db, uid)
-    if reusable:
-        session = reusable
+
+    if req.force_new and req.exclude_session_id:
+        excluded = await chat_session_service.get_owned_session(db, req.exclude_session_id, uid)
+        if excluded:
+            excluded_count = await chat_session_service.get_message_count(
+                db, req.exclude_session_id, uid
+            )
+            if excluded_count == 0:
+                session = excluded
+            else:
+                reusable = await chat_session_service.find_reusable_empty_session(
+                    db, uid, exclude_ids=[req.exclude_session_id]
+                )
+                session = reusable or await chat_session_service.create_session(db, uid, req.title)
+        else:
+            session = await chat_session_service.create_session(db, uid, req.title)
     else:
-        session = await chat_session_service.create_session(db, uid, req.title)
+        reusable = await chat_session_service.find_reusable_empty_session(db, uid)
+        if reusable:
+            session = reusable
+        else:
+            session = await chat_session_service.create_session(db, uid, req.title)
     return {
         "session_id": session.id,
         "title": session.title,
