@@ -1,6 +1,19 @@
 <template>
   <div class="login-page">
     <div class="login-bg" aria-hidden="true">
+      <div class="bg-grid"></div>
+      <svg class="bg-chart bg-chart--left" viewBox="0 0 200 120" fill="none">
+        <polyline points="10,90 40,70 70,75 100,45 130,55 160,25 190,35" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="160" cy="25" r="4" fill="currentColor" />
+      </svg>
+      <svg class="bg-chart bg-chart--right" viewBox="0 0 120 120" fill="none">
+        <rect x="20" y="60" width="16" height="40" rx="2" fill="currentColor" opacity="0.5" />
+        <rect x="44" y="40" width="16" height="60" rx="2" fill="currentColor" opacity="0.7" />
+        <rect x="68" y="25" width="16" height="75" rx="2" fill="currentColor" />
+        <rect x="92" y="50" width="16" height="50" rx="2" fill="currentColor" opacity="0.6" />
+      </svg>
+      <div class="bg-panel bg-panel--tl"></div>
+      <div class="bg-panel bg-panel--br"></div>
       <div class="orb o1"></div>
       <div class="orb o2"></div>
       <div class="orb o3"></div>
@@ -134,11 +147,106 @@ async function handleLogin() {
   justify-content: center;
   position: relative;
   padding: 24px;
-  background: var(--color-background);
+  background-color: var(--color-background);
+  background-image: url('/images/login-bg-mint-rich.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .login-bg {
-  display: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(46, 125, 50, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(46, 125, 50, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, black 85%);
+}
+
+.bg-chart {
+  position: absolute;
+  color: rgba(46, 125, 50, 0.12);
+}
+
+.bg-chart--left {
+  width: 220px;
+  height: 132px;
+  top: 12%;
+  left: 4%;
+  animation: float-slow 18s ease-in-out infinite;
+}
+
+.bg-chart--right {
+  width: 140px;
+  height: 140px;
+  bottom: 10%;
+  right: 5%;
+  animation: float-slow 22s ease-in-out infinite reverse;
+}
+
+.bg-panel {
+  position: absolute;
+  border: 1px solid rgba(46, 125, 50, 0.1);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.bg-panel--tl {
+  width: 180px;
+  height: 100px;
+  top: 8%;
+  right: 8%;
+  transform: rotate(-6deg);
+}
+
+.bg-panel--br {
+  width: 160px;
+  height: 90px;
+  bottom: 14%;
+  left: 6%;
+  transform: rotate(4deg);
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(200, 230, 201, 0.35);
+  filter: blur(40px);
+}
+
+.o1 {
+  width: 280px;
+  height: 280px;
+  top: -60px;
+  right: 10%;
+}
+
+.o2 {
+  width: 220px;
+  height: 220px;
+  bottom: 8%;
+  left: 12%;
+}
+
+.o3 {
+  width: 160px;
+  height: 160px;
+  top: 40%;
+  left: -40px;
+  background: rgba(46, 125, 50, 0.08);
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 .login-card {
