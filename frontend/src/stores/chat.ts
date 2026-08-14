@@ -45,15 +45,8 @@ export const useChatStore = defineStore('chat', () => {
   const sessionId = ref('')
   const membershipRequiredMessage = ref<string | null>(null)
 
-  function connect(options: { silent?: boolean } = {}) {
-    const silent = options.silent ?? false
-    if (!sessionId.value) return
-
-    if (ws.value) ws.value.disconnect()
-    ws.value = new ChatWebSocket(sessionId.value)
-    ws.value.connect().catch(() => {
-      /* 初始连接失败由 on('error') 统一处理 */
-    })
+  function bindWsHandlers(silent: boolean) {
+    if (!ws.value) return
 
     ws.value.on('start', () => { isLoading.value = true })
 
@@ -135,16 +128,17 @@ export const useChatStore = defineStore('chat', () => {
 
     ws.value.on('done', () => {
       isLoading.value = false
+      const last = messages.value[messages.value.length - 1]
+      if (last?.role === 'assistant') {
+        last.isStreaming = false
+        last.thinking = false
+      }
       loadSessions()
     })
 
     ws.value.on('error', (data) => {
       const wasSending = isLoading.value
-      isLoading.value = false
-      const last = messages.value[messages.value.length - 1]
-      if (last?.role === 'assistant' && last.isStreaming) {
-        messages.value.pop()
-      }
+      clearStreamingState({ removeEmptyAssistant: true })
       if (data.code === 'MEMBERSHIP_REQUIRED') {
         membershipRequiredMessage.value = data.message || '该功能需开通会员'
         return
@@ -161,6 +155,43 @@ export const useChatStore = defineStore('chat', () => {
     ws.value.on('disconnected', () => { isLoading.value = false })
   }
 
+  function clearStreamingState(options: { removeEmptyAssistant?: boolean } = {}) {
+    isLoading.value = false
+    const last = messages.value[messages.value.length - 1]
+    if (last?.role === 'assistant' && last.isStreaming) {
+      last.isStreaming = false
+      last.thinking = false
+      if (options.removeEmptyAssistant && !last.content && !(last.tool_calls?.length)) {
+        messages.value.pop()
+      }
+    }
+  }
+
+  async function connect(options: { silent?: boolean } = {}): Promise<boolean> {
+    const silent = options.silent ?? false
+    if (!sessionId.value) return false
+
+    if (ws.value) ws.value.disconnect()
+    ws.value = new ChatWebSocket(sessionId.value)
+    bindWsHandlers(silent)
+
+    try {
+      await ws.value.connect()
+      return true
+    } catch (e) {
+      console.error('[chat] websocket connect failed', e)
+      if (!silent) {
+        messages.value.push({
+          id: 'err_' + Date.now(),
+          role: 'system',
+          content: e instanceof Error ? e.message : 'WebSocket 连接失败，请刷新页面重试',
+          timestamp: Date.now(),
+        })
+      }
+      return false
+    }
+  }
+
   async function loadSessions() {
     try {
       const data = await fetchSessions()
@@ -169,9 +200,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function switchSession(id: string) {
+    if (ws.value) ws.value.disconnect()
     sessionId.value = id
     messages.value = []
-    connect({ silent: true })
+    await connect({ silent: true })
     try {
       const data = await fetchSessionMessages(id)
       for (const m of data.messages || []) {
@@ -197,43 +229,56 @@ export const useChatStore = defineStore('chat', () => {
     return messages.value.length === 0 && getCurrentSessionServerMessageCount() === 0
   }
 
+  async function createSessionOnServer(options: {
+    force_new?: boolean
+    exclude_session_id?: string
+  } = {}) {
+    const data = await apiCreateSession('新对话', options)
+    sessionId.value = data.session_id
+    await connect({ silent: true })
+    await loadSessions()
+    return data.session_id
+  }
+
   async function newSession(options: { userInitiated?: boolean } = {}) {
     const userInitiated = options.userInitiated ?? false
     const currentId = sessionId.value
 
-    if (userInitiated) {
-      if (isCurrentSessionEmpty() && currentId) {
+    try {
+      if (userInitiated) {
+        await loadSessions()
+
+        if (isCurrentSessionEmpty() && currentId) {
+          messages.value = []
+          await connect({ silent: true })
+          return
+        }
+
         messages.value = []
-        connect({ silent: true })
+        if (ws.value) ws.value.disconnect()
+
+        await createSessionOnServer({
+          force_new: true,
+          exclude_session_id: currentId || undefined,
+        })
+        return
+      }
+
+      if (isCurrentSessionEmpty() && sessionId.value) {
+        messages.value = []
+        await connect({ silent: true })
         return
       }
 
       messages.value = []
       if (ws.value) ws.value.disconnect()
-
-      const data = await apiCreateSession('新对话', {
-        force_new: true,
-        exclude_session_id: currentId || undefined,
-      })
-      sessionId.value = data.session_id
-      connect({ silent: true })
-      await loadSessions()
-      return
+      await createSessionOnServer()
+    } catch (e) {
+      console.error('[chat] newSession failed', e)
+      if (!sessionId.value) {
+        throw e
+      }
     }
-
-    if (isCurrentSessionEmpty() && sessionId.value) {
-      messages.value = []
-      connect({ silent: true })
-      return
-    }
-
-    messages.value = []
-    if (ws.value) ws.value.disconnect()
-
-    const data = await apiCreateSession('新对话')
-    sessionId.value = data.session_id
-    connect({ silent: true })
-    await loadSessions()
   }
 
   async function renameCurrentSession(title: string) {
@@ -243,8 +288,12 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendContextClear(options: { clear_skill?: boolean; clear_expert?: boolean }) {
     isLoading.value = false
+    if (!sessionId.value || !ws.value) return
     try {
-      await ws.value?.send('', {
+      if (!ws.value.isConnected) {
+        await connect({ silent: true })
+      }
+      await ws.value.send('', {
         mode: 'adaptive',
         clear_skill: options.clear_skill,
         clear_expert: options.clear_expert,
@@ -268,33 +317,42 @@ export const useChatStore = defineStore('chat', () => {
   ) {
     if (!content.trim() && !(options.attachments?.length)) return
 
-    messages.value.push({
-      id: 'u_' + Date.now(),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-    })
-
-    messages.value.push({
-      id: 'a_' + Date.now(),
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      isStreaming: true,
-      thinking: true,
-      steps: [],
-      citations: [],
-    })
-
-    isLoading.value = true
     try {
-      await ws.value?.send(content, options)
-    } catch (e) {
-      isLoading.value = false
-      const last = messages.value[messages.value.length - 1]
-      if (last?.role === 'assistant' && last.isStreaming) {
-        messages.value.pop()
+      if (!sessionId.value) {
+        await newSession()
       }
+      if (!sessionId.value) {
+        throw new Error('会话未就绪，请刷新页面后重试')
+      }
+      if (!ws.value || !ws.value.isConnected) {
+        const ok = await connect({ silent: false })
+        if (!ok) {
+          throw new Error('WebSocket 连接失败，请刷新页面后重试')
+        }
+      }
+
+      messages.value.push({
+        id: 'u_' + Date.now(),
+        role: 'user',
+        content,
+        timestamp: Date.now(),
+      })
+
+      messages.value.push({
+        id: 'a_' + Date.now(),
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        isStreaming: true,
+        thinking: true,
+        steps: [],
+        citations: [],
+      })
+
+      isLoading.value = true
+      await ws.value!.send(content, options)
+    } catch (e) {
+      clearStreamingState({ removeEmptyAssistant: true })
       messages.value.push({
         id: 'err_' + Date.now(),
         role: 'system',
@@ -348,7 +406,10 @@ export const useChatStore = defineStore('chat', () => {
     if (sessionId.value === id) {
       sessionId.value = ''
       messages.value = []
-      if (ws.value) ws.value.disconnect()
+      if (ws.value) {
+        ws.value.disconnect()
+        ws.value = null
+      }
       await newSession()
     }
     await loadSessions()
