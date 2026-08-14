@@ -34,6 +34,7 @@
             <div
               :class="['session-item', { active: s.session_id === chatStore.sessionId && isChatRoute }]"
               @click="selectSession(s.session_id)"
+              @contextmenu.prevent
             >
               <el-icon class="session-icon"><ChatLineRound /></el-icon>
               <div class="session-body">
