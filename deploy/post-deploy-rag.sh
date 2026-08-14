@@ -70,7 +70,14 @@ if [[ "${SKIP_SEED:-0}" != "1" ]]; then
     die "缺少 data/member_knowledge，请确认 git pull 完整"
   fi
 
-  compose run --rm --no-deps backend python -m scripts.seed_member_knowledge ${FORCE_FLAG}
+  if ! compose run --rm --no-deps backend python -m scripts.seed_member_knowledge ${FORCE_FLAG}; then
+    echo ""
+    echo "[HINT] 若报 Chroma KeyError _type，请先执行:"
+    echo "  bash deploy/reset-chroma-volume.sh"
+    echo "  SKIP_GIT=1 bash deploy/incremental-update.sh   # 重建 backend 镜像（chromadb==0.5.20）"
+    echo "  bash deploy/post-deploy-rag.sh"
+    exit 1
+  fi
   info "灌库命令已完成"
 else
   log "跳过灌库 (SKIP_SEED=1)"

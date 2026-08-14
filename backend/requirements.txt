@@ -17,8 +17,8 @@ langchain-anthropic>=0.1.0
 langgraph>=0.1.0
 langgraph-checkpoint>=0.1.0
 
-# 向量数据库
-chromadb>=0.5.0
+# 向量数据库 — 版本必须与 Docker 镜像 chromadb/chroma:0.5.20 一致
+chromadb==0.5.20
 
 # 知识图谱
 neo4j>=5.20.0

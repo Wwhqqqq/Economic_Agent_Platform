@@ -163,7 +163,7 @@ python -m scripts.seed_member_knowledge
 
 | 现象 | 处理 |
 |------|------|
-| Chroma `KeyError: _type` | 删除旧本地持久化目录，改用 Docker Chroma HTTP：`CHROMA_HOST=localhost CHROMA_PORT=8001` |
+| Chroma `KeyError: _type` | 客户端/服务端版本不一致或数据损坏：`bash deploy/reset-chroma-volume.sh`，然后 `SKIP_GIT=1 bash deploy/incremental-update.sh` 重建 backend，再 `bash deploy/post-deploy-rag.sh` |
 | Redis 连接失败 | `docker compose up -d redis`，检查 `REDIS_URL` |
 | Neo4j 连接失败 | 检查 `NEO4J_URI` 端口（Docker 7688），密码与 `NEO4J_AUTH` 一致 |
 | 会员库为空 | 运行 `bash deploy/post-deploy-rag.sh` |
