@@ -21,6 +21,7 @@ RUN pip install --upgrade pip setuptools wheel \
     && pip install --retries 10 --timeout 300 -r /app/backend/requirements.txt
 
 COPY backend /app/backend
+COPY data/member_knowledge /app/data/member_knowledge
 
 WORKDIR /app/backend
 

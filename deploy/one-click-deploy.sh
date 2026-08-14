@@ -71,6 +71,15 @@ wait_for_health() {
   die "健康检查超时（${HEALTH_TIMEOUT}s），请查看日志: compose logs"
 }
 
+run_rag_seed() {
+  if [[ -f "deploy/post-deploy-rag.sh" ]]; then
+    log "RAG 会员知识库灌库"
+    bash deploy/post-deploy-rag.sh || die "RAG 灌库失败，请查看上方日志"
+  else
+    info "跳过 RAG 灌库（脚本尚未存在）"
+  fi
+}
+
 setup_compose_files() {
   COMPOSE_FILE_ARGS=(-f "${COMPOSE_BASE}")
   if [[ -n "${MYSQL_DOCKER_NETWORK:-}" ]]; then
@@ -234,6 +243,9 @@ compose ps
 # ---------- 健康检查 ----------
 log "健康检查"
 wait_for_health
+
+# ---------- RAG 灌库 ----------
+run_rag_seed
 
 # ---------- 完成 ----------
 log "部署完成"

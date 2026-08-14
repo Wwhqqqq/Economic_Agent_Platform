@@ -1,0 +1,190 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-08-09",
+  "description": "会员专享财务/会计 RAG 知识库 — 基于政府公开准则、监管文件及开放教育资料的结构化摘要",
+  "platform_user_id": 0,
+  "documents": [
+    {
+      "doc_id": "member-cas-framework",
+      "file": "01-cas-framework.md",
+      "title": "企业会计准则体系框架",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则", "publisher": "财政部会计司", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "企业会计准则——基本准则（2014修订）", "publisher": "财政部", "url": "https://www.casc.org.cn/", "license": "政府公开信息", "type": "primary"}
+      ]
+    },
+    {
+      "doc_id": "member-cas-revenue-inventory",
+      "file": "02-cas-revenue-inventory.md",
+      "title": "收入确认与存货会计（CAS14/CAS1）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第14号——收入（2017修订）", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "企业会计准则第1号——存货", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IFRS 15 Revenue from Contracts with Customers", "publisher": "IASB/EU-endorsed", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规（趋同参考）", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-cas-financial-instruments",
+      "file": "03-cas-financial-instruments.md",
+      "title": "金融工具会计（CAS22/23/37/39）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第22号——金融工具确认和计量", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "企业会计准则第23号——金融资产转移", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IFRS 9 Financial Instruments", "publisher": "IASB/EU-endorsed", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规（趋同参考）", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-cas-leases",
+      "file": "04-cas-leases.md",
+      "title": "租赁会计（CAS21/IFRS16）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第21号——租赁（2018修订）", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IFRS 16 Leases", "publisher": "IASB/EU-endorsed", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规（趋同参考）", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-cas-consolidation",
+      "file": "05-cas-consolidation.md",
+      "title": "合并财务报表（CAS33）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第33号——合并财务报表", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "企业会计准则第20号——企业合并", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"}
+      ]
+    },
+    {
+      "doc_id": "member-cas-impairment",
+      "file": "06-cas-impairment.md",
+      "title": "资产减值（CAS8/IAS36）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第8号——资产减值", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IAS 36 Impairment of Assets", "publisher": "IASB/EU-endorsed", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规（趋同参考）", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-cpa-audit-framework",
+      "file": "07-cpa-audit-framework.md",
+      "title": "中国注册会计师审计准则框架",
+      "category": "审计准则",
+      "sources": [
+        {"title": "中国注册会计师审计准则（已发布准则）", "publisher": "中国注册会计师协会", "url": "https://www.cicpa.org.cn/ztzl1/Professional_standards/Professional_guidelines/yifabu/", "license": "行业公开准则", "type": "primary"},
+        {"title": "财会〔2022〕36号 审计准则修订通知", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zhengcefabu/202301/t20230103_3861825.htm", "license": "政府公开信息", "type": "primary"}
+      ]
+    },
+    {
+      "doc_id": "member-financial-analysis",
+      "file": "08-financial-analysis-ratios.md",
+      "title": "财务报表分析与关键财务比率",
+      "category": "财务分析",
+      "sources": [
+        {"title": "企业会计准则第30号——财务报表列报", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "Financial Statement Analysis Framework", "publisher": "CFA Institute (公开教育框架)", "url": "https://www.cfainstitute.org/", "license": "教育参考", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-tax-basics-china",
+      "file": "09-tax-basics-china.md",
+      "title": "中国主要税种基础（增值税与企业所得税）",
+      "category": "税务",
+      "sources": [
+        {"title": "中华人民共和国增值税法", "publisher": "全国人民代表大会", "url": "https://www.gov.cn/", "license": "法律公开文本", "type": "primary"},
+        {"title": "中华人民共和国企业所得税法", "publisher": "全国人民代表大会", "url": "https://www.gov.cn/", "license": "法律公开文本", "type": "primary"},
+        {"title": "国家税务总局政策法规库", "publisher": "国家税务总局", "url": "https://fgk.chinatax.gov.cn/", "license": "政府公开信息", "type": "primary"}
+      ]
+    },
+    {
+      "doc_id": "member-internal-control",
+      "file": "10-internal-control-coso.md",
+      "title": "内部控制框架（COSO 2013 与内控指引）",
+      "category": "内控",
+      "sources": [
+        {"title": "企业内部控制基本规范及配套指引", "publisher": "财政部等五部委", "url": "https://www.mof.gov.cn/", "license": "政府公开信息", "type": "primary"},
+        {"title": "COSO Internal Control—Integrated Framework (2013)", "publisher": "COSO", "url": "https://www.coso.org/", "license": "框架公开摘要引用", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-ifrs-cas-mapping",
+      "file": "11-ifrs-cas-mapping.md",
+      "title": "IFRS 与中国企业会计准则趋同对照",
+      "category": "国际准则",
+      "sources": [
+        {"title": "企业会计准则与国际财务报告准则持续趋同", "publisher": "财政部会计准则委员会", "url": "https://www.casc.org.cn/", "license": "政府公开信息", "type": "primary"},
+        {"title": "EU-endorsed IFRS (Regulation 2023/1803)", "publisher": "European Union", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-financial-statements",
+      "file": "12-financial-statements-structure.md",
+      "title": "四表一注结构与勾稽关系",
+      "category": "财务报表",
+      "sources": [
+        {"title": "企业会计准则第30号——财务报表列报", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "企业会计准则第31号——现金流量表", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"}
+      ]
+    },
+    {
+      "doc_id": "member-audit-procedures",
+      "file": "13-audit-procedures-common.md",
+      "title": "常见审计程序与底稿要点",
+      "category": "审计实务",
+      "sources": [
+        {"title": "中国注册会计师审计准则第1301号——审计证据", "publisher": "中注协", "url": "https://www.cicpa.org.cn/", "license": "行业公开准则", "type": "primary"},
+        {"title": "中国注册会计师审计准则第1211号——重大错报风险的识别和评估", "publisher": "财政部/中注协", "url": "http://kjs.mof.gov.cn/zhengcefabu/202301/t20230103_3861825.htm", "license": "政府公开信息", "type": "primary"}
+      ]
+    },
+    {
+      "doc_id": "member-data-resources",
+      "file": "14-data-resources-accounting.md",
+      "title": "数据资源相关会计处理暂行规定",
+      "category": "新兴准则",
+      "sources": [
+        {"title": "企业数据资源相关会计处理暂行规定", "publisher": "财政部", "url": "https://www.casc.org.cn/2023/0821/245363.shtml", "license": "政府公开信息", "type": "primary", "doc_no": "财会〔2023〕11号"}
+      ]
+    },
+    {
+      "doc_id": "member-esg-disclosure",
+      "file": "15-esg-sustainability-disclosure.md",
+      "title": "企业可持续披露准则与ESG报告要点",
+      "category": "可持续披露",
+      "sources": [
+        {"title": "企业可持续披露准则——基本准则（试行）", "publisher": "财政部", "url": "https://www.casc.org.cn/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IFRS S1/S2 General Requirements for Sustainability-related Disclosures", "publisher": "ISSB", "url": "https://www.ifrs.org/", "license": "准则公开摘要引用", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-long-term-equity",
+      "file": "16-cas-long-term-equity.md",
+      "title": "长期股权投资（CAS2）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第2号——长期股权投资（2014修订）", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IAS 28 Investments in Associates and Joint Ventures", "publisher": "IASB/EU-endorsed", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规（趋同参考）", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-deferred-tax",
+      "file": "17-cas-deferred-tax.md",
+      "title": "所得税与递延所得税（CAS18/IAS12）",
+      "category": "会计准则",
+      "sources": [
+        {"title": "企业会计准则第18号——所得税", "publisher": "财政部", "url": "http://kjs.mof.gov.cn/zt/kjzzss/kuaijizhunzeshishi/", "license": "政府公开信息", "type": "primary"},
+        {"title": "IAS 12 Income Taxes", "publisher": "IASB/EU-endorsed", "url": "https://eur-lex.europa.eu/", "license": "EU公开法规（趋同参考）", "type": "reference"}
+      ]
+    },
+    {
+      "doc_id": "member-government-accounting",
+      "file": "18-government-nonprofit-accounting.md",
+      "title": "政府及非营利组织会计概要",
+      "category": "政府会计",
+      "sources": [
+        {"title": "政府会计准则——基本准则", "publisher": "财政部", "url": "https://www.mof.gov.cn/", "license": "政府公开信息", "type": "primary"},
+        {"title": "民间非营利组织会计制度", "publisher": "财政部", "url": "https://www.mof.gov.cn/", "license": "政府公开信息", "type": "primary"}
+      ]
+    }
+  ]
+}

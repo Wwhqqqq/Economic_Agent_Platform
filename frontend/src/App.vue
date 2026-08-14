@@ -201,25 +201,24 @@ watch(isAuthRoute, async (onAuthPage) => {
 .app-container {
   display: flex;
   height: 100vh;
-  background: var(--gradient-page);
+  background: var(--color-background);
 }
 
 .sidebar {
   width: 260px;
-  background: var(--gradient-sidebar);
-  backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(199, 210, 254, 0.45);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   z-index: 10;
-  box-shadow: 4px 0 24px rgba(99, 102, 241, 0.06);
+  box-shadow: none;
 }
 
 .sidebar-header {
   padding: 20px 16px 14px;
   border-bottom: 1px solid var(--sidebar-divider);
-  background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%);
+  background: #ffffff;
 }
 
 .logo-wrap {
@@ -232,14 +231,12 @@ watch(isAuthRoute, async (onAuthPage) => {
 .logo-icon {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
 }
 
 .logo {
@@ -262,9 +259,8 @@ watch(isAuthRoute, async (onAuthPage) => {
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  background: linear-gradient(135deg, rgba(238,242,255,0.9), rgba(236,254,255,0.7));
-  border: 1px solid rgba(199, 210, 254, 0.5);
-  border-radius: 20px;
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--color-border);
   font-size: 11px;
   color: var(--ui-text-regular);
   font-weight: 500;
@@ -317,22 +313,18 @@ watch(isAuthRoute, async (onAuthPage) => {
   width: 100%;
   height: 40px;
   margin-bottom: 10px;
-  border: none;
-  border-radius: 12px;
+  border: 1px solid var(--color-primary-hover);
   background: var(--btn-primary-bg);
   color: var(--btn-primary-color);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background 0.15s ease;
   font-family: var(--ui-font);
-  box-shadow: var(--btn-primary-shadow);
 }
 
 .new-chat-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--btn-primary-hover-shadow);
-  filter: brightness(1.05);
+  background: var(--color-primary-hover);
 }
 
 .session-list {
@@ -348,9 +340,8 @@ watch(isAuthRoute, async (onAuthPage) => {
   align-items: flex-start;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease;
   margin-bottom: 3px;
   border: 1px solid transparent;
 }
@@ -413,10 +404,9 @@ watch(isAuthRoute, async (onAuthPage) => {
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-radius: 10px;
   color: var(--ui-text-regular);
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
   font-size: 14px;
   margin-bottom: 3px;
   border: 1px solid transparent;
@@ -445,28 +435,12 @@ watch(isAuthRoute, async (onAuthPage) => {
   transform: translateY(-50%);
   width: 3px;
   height: 60%;
-  background: var(--gradient-accent);
-  border-radius: 0 3px 3px 0;
-}
-
-.nav-item.active .nav-icon-el {
-  color: var(--color-primary);
-}
-
-.nav-icon-el {
-  font-size: 17px;
-  color: var(--ui-text-secondary);
-}
-
-.sidebar-footer {
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--sidebar-divider);
+  background: var(--color-primary);
 }
 
 .user-card {
   margin-bottom: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
   background: var(--user-card-bg);
   border: 1px solid var(--user-card-border);
 }
@@ -490,8 +464,7 @@ watch(isAuthRoute, async (onAuthPage) => {
 .user-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: #fff;
   font-size: 14px;
   font-weight: 700;
@@ -499,13 +472,11 @@ watch(isAuthRoute, async (onAuthPage) => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
   overflow: hidden;
 }
 
 .user-avatar.member {
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
-  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.35);
+  background: var(--color-primary);
 }
 
 .user-avatar-img {
@@ -530,37 +501,18 @@ watch(isAuthRoute, async (onAuthPage) => {
   text-overflow: ellipsis;
 }
 
-.footer-card {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--settings-entry-bg);
-  border: 1px solid var(--settings-entry-border);
+.nav-item.active .nav-icon-el {
+  color: var(--color-primary);
 }
 
-.settings-entry-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--settings-entry-border);
-  background: var(--settings-entry-bg);
-  color: var(--ui-text-primary);
-  text-decoration: none;
-  transition: all 0.2s ease;
+.nav-icon-el {
+  font-size: 17px;
+  color: var(--ui-text-secondary);
 }
 
-.settings-entry-btn:hover {
-  border-color: var(--settings-entry-hover-border);
-  background: var(--settings-entry-hover-bg);
-  box-shadow: 0 4px 14px rgba(30, 27, 75, 0.2);
-}
-
-.settings-entry-btn.active {
-  border-color: var(--settings-entry-active-border);
-  background: var(--settings-entry-active-bg);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+.sidebar-footer {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--sidebar-divider);
 }
 
 .settings-icon {
@@ -616,15 +568,40 @@ watch(isAuthRoute, async (onAuthPage) => {
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #FFFBEB;
-  color: #B45309;
+  background: #fff8e1;
+  color: #e65100;
   font-size: 12px;
-  border-bottom: 1px solid #FDE68A;
+  border-bottom: 1px solid #ffcc80;
   flex-shrink: 0;
 }
 
+.settings-entry-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--settings-entry-border);
+  background: var(--settings-entry-bg);
+  color: var(--ui-text-primary);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-entry-btn:hover {
+  border-color: var(--settings-entry-hover-border);
+  background: var(--settings-entry-hover-bg);
+  box-shadow: none;
+}
+
+.settings-entry-btn.active {
+  border-color: var(--settings-entry-active-border);
+  background: var(--settings-entry-active-bg);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 .auth-layout {
-  background: var(--gradient-page);
+  background: var(--color-background);
 }
 
 .auth-main {

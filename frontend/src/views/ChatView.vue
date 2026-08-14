@@ -517,9 +517,8 @@ function quickAction(type: string) {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(199, 210, 254, 0.4);
+  background: #ffffff;
+  border-bottom: 1px solid var(--color-border);
   gap: 16px;
   flex-wrap: wrap;
   flex-shrink: 0;
@@ -529,17 +528,7 @@ function quickAction(type: string) {
   font-size: 18px;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(135deg, #1E1B4B, #6366F1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  color: var(--ui-text-primary);
 }
 
 .context-banner {
@@ -547,8 +536,8 @@ function quickAction(type: string) {
   align-items: center;
   gap: 8px;
   padding: 8px 24px;
-  background: linear-gradient(90deg, rgba(238,242,255,0.9), rgba(236,254,255,0.6));
-  border-bottom: 1px solid rgba(199, 210, 254, 0.35);
+  background: var(--ui-bg-muted);
+  border-bottom: 1px solid var(--color-border);
   font-size: 13px;
   color: var(--ui-text-regular);
   flex-shrink: 0;
@@ -571,35 +560,10 @@ function quickAction(type: string) {
 }
 
 .mode-select :deep(.el-select__wrapper) {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.08);
+  background: #ffffff;
+  border: 1px solid var(--color-border);
   font-weight: 600;
   font-size: 12px;
-}
-
-.mode-option {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 2px 0;
-}
-
-.mode-option-label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.mode-option-desc {
-  font-size: 11px;
-  color: var(--ui-text-secondary);
-}
-
-.context-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
 }
 
 .ctx-chip {
@@ -607,102 +571,74 @@ function quickAction(type: string) {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  background: rgba(238, 242, 255, 0.95);
-  border: 1px solid rgba(199, 210, 254, 0.5);
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--color-border);
   color: var(--color-primary);
 }
 
-.ctx-chip.expert { color: #4338ca; }
-.chip-x {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  color: inherit;
-  opacity: 0.7;
-  padding: 0;
-}
-.chip-x:hover { opacity: 1; }
-
-.input-shell {
-  position: relative;
-}
+.ctx-chip.expert { color: var(--color-primary-hover); }
 
 .input-hint code {
   font-size: 11px;
-  background: rgba(238, 242, 255, 0.8);
+  background: var(--ui-bg-muted);
   padding: 1px 4px;
-  border-radius: 4px;
 }
 
 .hero-icon {
   width: 72px;
   height: 72px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(238,242,255,0.95), rgba(236,254,255,0.8));
-  border: 1px solid rgba(199, 210, 254, 0.5);
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
 }
 
 .message-avatar {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(199, 210, 254, 0.45);
+  background: #ffffff;
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  color: var(--color-violet);
+  color: var(--color-primary);
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
 }
 
 .message.user .message-avatar {
-  background: var(--gradient-primary);
-  border: none;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .message-content {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(10px);
-  border-radius: 14px;
+  background: #ffffff;
   padding: 12px 16px;
-  border: 1px solid rgba(199, 210, 254, 0.4);
+  border: 1px solid var(--color-border);
   min-width: 0;
   flex: 1;
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.06);
 }
 
 .message.user .message-content {
-  background: var(--gradient-primary);
-  border: none;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
 }
 
 .tool-call-item {
-  background: linear-gradient(135deg, rgba(238,242,255,0.7), rgba(236,254,255,0.5));
-  border-radius: 10px;
+  background: var(--ui-bg-muted);
   padding: 8px 12px;
-  border: 1px solid rgba(199, 210, 254, 0.4);
+  border: 1px solid var(--color-border);
 }
 
 .chat-input-area {
   padding: 12px 24px 20px;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(199, 210, 254, 0.4);
+  background: #ffffff;
+  border-top: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -710,28 +646,25 @@ function quickAction(type: string) {
   display: flex;
   gap: 10px;
   align-items: flex-end;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(199, 210, 254, 0.5);
-  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
   padding: 8px 10px 8px 16px;
-  transition: all 0.22s ease;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08);
+  transition: border-color 0.15s ease;
 }
 
 .input-wrapper:focus-within {
-  border-color: rgba(99, 102, 241, 0.55);
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.12);
 }
 
 .btn-attach {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
   background: transparent;
-  border: 1px solid rgba(199, 210, 254, 0.55);
+  border: 1px solid var(--color-border);
   color: var(--color-primary);
   cursor: pointer;
-  transition: all 0.22s ease;
+  transition: background 0.15s ease;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -740,49 +673,40 @@ function quickAction(type: string) {
 }
 
 .btn-attach:hover:not(:disabled) {
-  background: rgba(238, 242, 255, 0.85);
-  border-color: rgba(99, 102, 241, 0.45);
-}
-
-.btn-attach:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  background: var(--ui-bg-muted);
+  border-color: var(--color-primary);
 }
 
 .btn-send {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
   background: var(--btn-primary-bg);
-  border: none;
+  border: 1px solid var(--color-primary-hover);
   color: var(--btn-primary-color);
   cursor: pointer;
-  transition: all 0.22s ease;
+  transition: background 0.15s ease;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  box-shadow: var(--btn-primary-shadow);
 }
 
 .btn-send:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--btn-primary-hover-shadow);
+  background: var(--color-primary-hover);
 }
 
 .steps-timeline {
   margin-bottom: 10px;
   padding-left: 8px;
-  border-left: 2px solid rgba(129, 140, 248, 0.4);
+  border-left: 2px solid var(--color-border);
 }
 
 .cite-card {
-  background: linear-gradient(135deg, rgba(245,243,255,0.8), rgba(238,242,255,0.6));
-  border-radius: 10px;
+  background: var(--ui-bg-muted);
   padding: 8px 12px;
   margin-bottom: 6px;
-  border: 1px solid rgba(199, 210, 254, 0.4);
+  border: 1px solid var(--color-border);
 }
 
 .header-left { min-width: 0; }
@@ -819,7 +743,7 @@ function quickAction(type: string) {
 .tool-status.done { color: var(--ui-success); }
 .tool-details { margin-top: 6px; }
 .tool-details summary { font-size: 12px; color: var(--ui-text-secondary); cursor: pointer; user-select: none; }
-.tool-result { margin-top: 6px; font-size: 12px; color: var(--ui-text-regular); white-space: pre-wrap; max-height: 160px; overflow-y: auto; padding: 8px; background: rgba(255,255,255,0.8); border-radius: 6px; }
+.tool-result { margin-top: 6px; font-size: 12px; color: var(--ui-text-regular); white-space: pre-wrap; max-height: 160px; overflow-y: auto; padding: 8px; background: #ffffff; border: 1px solid var(--color-border); }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .streaming-indicator { display: inline-flex; gap: 4px; padding: 4px 0; }

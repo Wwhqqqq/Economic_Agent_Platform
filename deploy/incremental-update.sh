@@ -255,6 +255,12 @@ compose ps migrate backend gateway redis chromadb neo4j 2>/dev/null || compose p
 log "健康检查"
 wait_for_health
 
+# ---------- RAG 会员知识库灌库 ----------
+if [[ -f "deploy/post-deploy-rag.sh" ]]; then
+  log "RAG 会员知识库灌库"
+  bash deploy/post-deploy-rag.sh || die "RAG 灌库失败"
+fi
+
 # ---------- 完成 ----------
 log "增量更新完成"
 

@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
-
 * {
   margin: 0;
   padding: 0;
@@ -8,14 +6,14 @@
 
 body {
   font-family: var(--ui-font);
-  background: var(--gradient-page);
-  background-attachment: fixed;
+  background: var(--color-background);
   color: var(--ui-text-primary);
   height: 100vh;
   overflow: hidden;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
@@ -23,17 +21,16 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #C7D2FE, #A5B4FC);
-  border-radius: 3px;
+  background: #a5c9a7;
 }
 
 ::selection {
@@ -47,63 +44,51 @@ body {
   color: var(--ui-text-primary);
   margin-bottom: 12px;
   padding-left: 12px;
-  border-left: 3px solid transparent;
-  border-image: var(--gradient-accent) 1;
+  border-left: 3px solid var(--color-primary);
 }
 
 .ui-card {
-  background: var(--gradient-card-shine);
-  backdrop-filter: blur(12px);
-  border-radius: var(--ui-radius-card);
+  background: var(--color-surface);
   border: 1px solid var(--ui-border);
-  box-shadow: var(--ui-shadow-md);
+  box-shadow: var(--ui-shadow-sm);
   padding: 20px 24px;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  transition: border-color 0.15s ease;
 }
 
 .ui-card:hover {
-  border-color: rgba(129, 140, 248, 0.45);
-  box-shadow: var(--ui-shadow-glow);
+  border-color: var(--color-primary);
 }
 
 .ui-btn-primary {
   background: var(--btn-primary-bg);
-  border: none;
-  border-radius: var(--ui-radius-pill);
+  border: 1px solid var(--color-primary-hover);
   height: 40px;
   padding: 0 20px;
   font-weight: 600;
   color: var(--btn-primary-color);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition: background 0.15s ease;
   font-family: var(--ui-font);
   font-size: 14px;
-  box-shadow: var(--btn-primary-shadow);
 }
 
 .ui-btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--btn-primary-hover-shadow);
-  filter: brightness(1.05);
+  background: var(--color-primary-hover);
 }
 
 .ui-btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .ui-btn-ghost {
   height: 36px;
   padding: 0 14px;
-  border-radius: var(--ui-radius-pill);
   border: 1px solid var(--btn-ghost-border);
   background: var(--btn-ghost-bg);
-  backdrop-filter: blur(6px);
   color: var(--btn-ghost-color);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   font-family: var(--ui-font);
   font-size: 13px;
 }
@@ -112,7 +97,6 @@ body {
   color: var(--btn-ghost-hover-color);
   border-color: var(--btn-ghost-hover-border);
   background: var(--btn-ghost-hover-bg);
-  box-shadow: var(--btn-ghost-hover-shadow);
 }
 
 .page-shell {
@@ -131,63 +115,48 @@ body {
 
 .el-input__wrapper,
 .el-textarea__inner {
-  border-radius: 10px !important;
   box-shadow: none !important;
   border: 1px solid var(--ui-border) !important;
-  background: rgba(255, 255, 255, 0.85) !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  background: #ffffff !important;
+  transition: border-color 0.15s ease !important;
 }
 
 .el-input__wrapper:hover,
 .el-textarea__inner:hover {
-  border-color: #A5B4FC !important;
+  border-color: var(--color-primary) !important;
 }
 
 .el-input__wrapper.is-focus,
 .el-textarea__inner:focus {
   border-color: var(--color-primary) !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.15) !important;
 }
 
-/* Browser autofill / saved credential paste tints the inner input — keep wrapper look consistent */
 .el-input__inner:-webkit-autofill,
 .el-input__inner:-webkit-autofill:hover,
 .el-input__inner:-webkit-autofill:focus,
 .el-input__inner:-webkit-autofill:active,
 .el-input__inner:autofill {
-  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.85) inset !important;
-  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.85) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
   -webkit-text-fill-color: var(--ui-text-primary) !important;
   caret-color: var(--ui-text-primary);
-  transition: background-color 5000s ease-in-out 0s;
-}
-
-.el-input__wrapper.is-focus .el-input__inner:-webkit-autofill,
-.el-input__wrapper.is-focus .el-input__inner:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.92) inset !important;
-  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.92) inset !important;
-}
-
-.el-select .el-input__wrapper {
-  border-radius: 10px !important;
 }
 
 .el-tag {
-  border-radius: 6px !important;
   font-family: var(--ui-font);
 }
 
 .el-tag.el-tag--primary.is-plain {
   background: var(--ui-primary-light) !important;
-  border-color: #C7D2FE !important;
+  border-color: var(--color-border) !important;
   color: var(--color-primary-hover) !important;
 }
 
 .el-card {
   border: 1px solid var(--ui-border) !important;
-  border-radius: var(--ui-radius-card) !important;
   box-shadow: var(--ui-shadow-sm) !important;
-  background: var(--gradient-card-shine) !important;
+  background: #ffffff !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -134,46 +134,11 @@ async function handleLogin() {
   justify-content: center;
   position: relative;
   padding: 24px;
-  background: var(--gradient-page);
+  background: var(--color-background);
 }
 
 .login-bg {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(72px);
-  opacity: 0.32;
-}
-
-.o1 {
-  width: 320px;
-  height: 320px;
-  background: #6366f1;
-  top: 8%;
-  left: 12%;
-}
-
-.o2 {
-  width: 260px;
-  height: 260px;
-  background: #06b6d4;
-  bottom: 12%;
-  right: 15%;
-}
-
-.o3 {
-  width: 200px;
-  height: 200px;
-  background: #8b5cf6;
-  top: 55%;
-  left: 55%;
-  opacity: 0.22;
+  display: none;
 }
 
 .login-card {
@@ -196,10 +161,8 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
 }
 
 .login-header h1 {
