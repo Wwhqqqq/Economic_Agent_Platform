@@ -102,6 +102,15 @@ compose() {
   docker compose "${COMPOSE_FILE_ARGS[@]}" --project-directory . "$@"
 }
 
+migrate_run() {
+  # `compose run` 默认可能不加入 external MySQL 网络，导致无法解析 MYSQL_HOST
+  local net_args=()
+  if [[ -n "${MYSQL_DOCKER_NETWORK:-}" ]]; then
+    net_args=(--network "${MYSQL_DOCKER_NETWORK}")
+  fi
+  compose run --rm "${net_args[@]}" migrate "$@"
+}
+
 detect_mysql_container() {
   [[ -n "${MYSQL_CONTAINER}" ]] && return 0
   info "自动探测 MySQL 容器..."
@@ -233,13 +242,13 @@ done
 log "Alembic 迁移 (upgrade head)"
 
 info "迁移链: … → 006_media_vlm → 007_membership"
-if compose run --rm migrate alembic current 2>/dev/null; then
+if migrate_run alembic current 2>/dev/null; then
   info "迁移前版本 ↑"
 fi
 
-compose run --rm migrate
+migrate_run
 info "迁移后版本:"
-compose run --rm migrate alembic current 2>/dev/null || true
+migrate_run alembic current 2>/dev/null || true
 info "迁移完成"
 
 # ---------- 滚动更新 backend + gateway ----------

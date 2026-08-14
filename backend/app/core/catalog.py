@@ -1,4 +1,4 @@
-"""
+﻿"""
 企业级平台目录 — 统一命名、展示文案与能力元数据
 
 内部标识（key）保持稳定，对外展示使用规范中文名称与业务描述。
@@ -216,7 +216,7 @@ def enrich_skill(skill_dict: dict) -> dict:
 def get_platform_catalog() -> dict:
     return {
         "platform": {
-            "name": "企业智能体工作台",
+            "name": "会计学通用工作台",
             "product_code": "AgentWorkbench",
             "version": "1.0.0",
             "description": "面向企业场景的 LLM 智能体编排平台，集成工具调用、技能编排、知识增强与多智能体协同能力。",

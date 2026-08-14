@@ -1,4 +1,4 @@
-"""
+﻿"""
 Agent Platform - FastAPI Main Entry
 
 Start:
@@ -79,7 +79,7 @@ def register_all_skills():
 # ---- 创建 FastAPI 应用 ----
 
 app = FastAPI(
-    title="企业智能体工作台",
+    title="会计学通用工作台",
     description="面向企业场景的 LLM 智能体编排平台：工具调用、技能编排、知识增强、多智能体协同",
     version="1.0.0",
     docs_url="/api/docs",
@@ -136,7 +136,7 @@ async def startup_event():
         print(f"[Startup] Redis init skipped: {exc}")
 
     print("=" * 60)
-    print(">>> 企业智能体工作台启动中...")
+    print(">>> 会计学通用工作台启动中...")
     print("=" * 60)
 
     # Register tools and skills
@@ -158,7 +158,7 @@ async def startup_event():
 @app.get("/")
 async def root():
     return {
-        "name": "企业智能体工作台",
+        "name": "会计学通用工作台",
         "product_code": "AgentWorkbench",
         "version": "1.0.0",
         "docs": "/api/docs",

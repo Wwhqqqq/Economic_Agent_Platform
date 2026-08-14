@@ -184,16 +184,20 @@ onMounted(async () => {
   if (authStore.authEnabled && authStore.token) {
     await authStore.refreshProfile()
     await chatStore.newSession()
-  } else {
-    chatStore.connect()
   }
   chatStore.loadSessions()
 })
 
 watch(isAuthRoute, async (onAuthPage) => {
-  if (!onAuthPage && authStore.token) {
-    await authStore.refreshProfile()
+  if (onAuthPage || !authStore.token) return
+  await authStore.refreshProfile()
+  systemStore.refresh()
+  try {
+    await chatStore.newSession()
+  } catch (e) {
+    console.error('[chat] failed to init session after login', e)
   }
+  chatStore.loadSessions()
 })
 </script>
 

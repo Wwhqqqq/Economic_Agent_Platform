@@ -42,13 +42,18 @@ export const useChatStore = defineStore('chat', () => {
   const sessions = ref<SessionItem[]>([])
   const isLoading = ref(false)
   const ws = ref<ChatWebSocket | null>(null)
-  const sessionId = ref('session_' + Date.now())
+  const sessionId = ref('')
   const membershipRequiredMessage = ref<string | null>(null)
 
-  function connect() {
+  function connect(options: { silent?: boolean } = {}) {
+    const silent = options.silent ?? false
+    if (!sessionId.value) return
+
     if (ws.value) ws.value.disconnect()
     ws.value = new ChatWebSocket(sessionId.value)
-    ws.value.connect()
+    ws.value.connect().catch(() => {
+      /* 初始连接失败由 on('error') 统一处理 */
+    })
 
     ws.value.on('start', () => { isLoading.value = true })
 
@@ -134,6 +139,7 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     ws.value.on('error', (data) => {
+      const wasSending = isLoading.value
       isLoading.value = false
       const last = messages.value[messages.value.length - 1]
       if (last?.role === 'assistant' && last.isStreaming) {
@@ -143,6 +149,7 @@ export const useChatStore = defineStore('chat', () => {
         membershipRequiredMessage.value = data.message || '该功能需开通会员'
         return
       }
+      if (silent && !wasSending) return
       messages.value.push({
         id: 'err_' + Date.now(),
         role: 'system',
@@ -164,7 +171,7 @@ export const useChatStore = defineStore('chat', () => {
   async function switchSession(id: string) {
     sessionId.value = id
     messages.value = []
-    connect()
+    connect({ silent: true })
     try {
       const data = await fetchSessionMessages(id)
       for (const m of data.messages || []) {
@@ -181,14 +188,12 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function newSession() {
-    try {
-      const data = await apiCreateSession('新对话')
-      sessionId.value = data.session_id
-    } catch {
-      sessionId.value = 'session_' + Date.now()
-    }
     messages.value = []
-    connect()
+    if (ws.value) ws.value.disconnect()
+
+    const data = await apiCreateSession('新对话')
+    sessionId.value = data.session_id
+    connect({ silent: true })
     await loadSessions()
   }
 

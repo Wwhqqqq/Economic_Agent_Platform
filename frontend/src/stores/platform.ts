@@ -14,7 +14,7 @@ export interface ExecutionMode {
 
 export const usePlatformStore = defineStore('platform', () => {
   const loaded = ref(false)
-  const platformName = ref('企业智能体工作台')
+  const platformName = ref('会计学通用工作台')
   const productCode = ref('AgentWorkbench')
   const description = ref('')
   const executionModes = ref<ExecutionMode[]>([])
